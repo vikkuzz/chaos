@@ -27,6 +27,7 @@ export interface UseGameEngineResult {
   addTower: (playerId: string, position: { x: number; y: number }) => string | null;
   buyUpgrade: (playerId: string, upgradeId: string) => boolean;
   buyBarrackUpgrade: (playerId: string, barrackId: string, upgradeId: string) => boolean;
+  buyBarrackWarrior: (playerId: string, barrackId: string) => boolean;
   setSpawningEnabled: (enabled: boolean) => void;
   setAutoDevelopmentEnabled: (enabled: boolean) => void;
   isAutoDevelopmentEnabled: () => boolean;
@@ -177,6 +178,13 @@ export function useGameEngine(
     [],
   );
 
+  const buyBarrackWarrior = useCallback(
+    (playerId: string, barrackId: string): boolean => {
+      return gameRef.current?.buyBarrackWarrior(playerId, barrackId) ?? false;
+    },
+    [],
+  );
+
   const setSpawningEnabled = useCallback((enabled: boolean): void => {
     gameRef.current?.setSpawningEnabled(enabled);
   }, []);
@@ -198,6 +206,7 @@ export function useGameEngine(
     addTower,
     buyUpgrade,
     buyBarrackUpgrade,
+    buyBarrackWarrior,
     setSpawningEnabled,
     setAutoDevelopmentEnabled,
     isAutoDevelopmentEnabled,

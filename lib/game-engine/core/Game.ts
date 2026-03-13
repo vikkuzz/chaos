@@ -30,6 +30,11 @@ export interface AttackEffect {
   timeMs: number;
 }
 
+export interface BarrackBuyCapacity {
+  current: number;
+  max: number;
+}
+
 export interface GameStateSnapshot {
   timeMs: number;
   entities: readonly Entity[];
@@ -37,6 +42,7 @@ export interface GameStateSnapshot {
   winnerIds: string[];
   playerStates: Record<string, PlayerState>;
   barrackUpgrades: Record<string, string[]>;
+  barrackBuyCapacity: Record<string, BarrackBuyCapacity>;
   attackEffects: readonly AttackEffect[];
 }
 
@@ -63,6 +69,7 @@ export class Game {
   private readonly attackEffects: AttackEffect[] = [];
   private static readonly ATTACK_EFFECT_DURATION_MS = 180;
   private static readonly GOLD_PER_WARRIOR_KILL = 5;
+  static readonly BUY_WARRIOR_COST = 30;
   private spawningEnabled = false;
 
   private static readonly GOLD_PER_SECOND_CASTLE = 3;
@@ -269,6 +276,12 @@ export class Game {
     for (const [id, ids] of this.barrackUpgrades) {
       barrackUpgrades[id] = [...ids];
     }
+    const barrackBuyCapacity: Record<string, BarrackBuyCapacity> = {};
+    for (const [id, barrack] of this.barracks) {
+      if (barrack.isAlive) {
+        barrackBuyCapacity[id] = barrack.getBuyCapacity();
+      }
+    }
     // Оставляем только недавние эффекты атаки.
     const cutoff = this.timeMs - Game.ATTACK_EFFECT_DURATION_MS;
     const recentEffects = this.attackEffects.filter((e) => e.timeMs > cutoff);
@@ -282,6 +295,7 @@ export class Game {
       winnerIds: this.winnerIds,
       playerStates,
       barrackUpgrades,
+      barrackBuyCapacity,
       attackEffects: [...this.attackEffects],
     };
   }
@@ -340,6 +354,22 @@ export class Game {
     ps.gold -= def.cost;
     this.barrackUpgrades.set(barrackId, [...ids, upgradeId]);
     this.applyBarrackUpgrades(barrackId);
+    return true;
+  }
+
+  /**
+   * Докупить воина в бараке за золото.
+   * Лимит зависит от прокачки барака (spawnCount), восстанавливается по таймауту.
+   */
+  buyBarrackWarrior(playerId: string, barrackId: string): boolean {
+    const barrack = this.barracks.get(barrackId);
+    const ps = this.playerStates.get(playerId);
+    if (!barrack || !ps || barrack.ownerId !== playerId || !barrack.isAlive) return false;
+    if (ps.gold < Game.BUY_WARRIOR_COST) return false;
+    if (!barrack.consumeBuyCapacity()) return false;
+
+    ps.gold -= Game.BUY_WARRIOR_COST;
+    barrack.spawnBuyWarrior();
     return true;
   }
 

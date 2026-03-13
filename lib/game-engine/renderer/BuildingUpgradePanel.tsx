@@ -1,7 +1,7 @@
 "use client";
 
 import type { Entity } from "../entities/Entity";
-import type { PlayerState } from "../core/Game";
+import { Game, type PlayerState, type BarrackBuyCapacity } from "../core/Game";
 import type { GameConfig } from "../config/defaultConfig";
 import {
   UPGRADE_DEFINITIONS,
@@ -18,11 +18,13 @@ export interface BuildingUpgradePanelProps {
   config: GameConfig;
   playerState: PlayerState | undefined;
   barrackUpgradeIds: string[];
+  barrackBuyCapacity?: BarrackBuyCapacity;
   position: { left: number; top: number };
   /** Границы области карты (viewport) для ограничения панели. */
   bounds?: { left: number; top: number; right: number; bottom: number };
   onBuyUpgrade: (playerId: string, upgradeId: string) => boolean;
   onBuyBarrackUpgrade: (playerId: string, barrackId: string, upgradeId: string) => boolean;
+  onBuyBarrackWarrior?: (playerId: string, barrackId: string) => boolean;
   onClose: () => void;
   gameOver?: boolean;
 }
@@ -104,10 +106,12 @@ export function BuildingUpgradePanel({
   config,
   playerState,
   barrackUpgradeIds,
+  barrackBuyCapacity,
   position,
   bounds,
   onBuyUpgrade,
   onBuyBarrackUpgrade,
+  onBuyBarrackWarrior,
   onClose,
   gameOver,
 }: BuildingUpgradePanelProps) {
@@ -220,6 +224,42 @@ export function BuildingUpgradePanel({
           <div className="text-[10px] text-slate-500">
             HP {entity.hp}/{entity.maxHp} · спавн {(entity as { spawnIntervalMs?: number }).spawnIntervalMs ?? "—"} мс · за цикл {(entity as { spawnCount?: number }).spawnCount ?? 1}
           </div>
+          {onBuyBarrackWarrior && barrackBuyCapacity && (
+            <div className="flex items-center justify-between gap-2 rounded border border-slate-600 bg-slate-700/40 px-2 py-1.5">
+              <div className="text-xs">
+                <span className="text-slate-400">Докупка воина:</span>{" "}
+                <span className="font-medium text-slate-200">
+                  {barrackBuyCapacity.current}/{barrackBuyCapacity.max}
+                </span>
+                <span className="ml-1 text-slate-500">(восст. 20 сек)</span>
+              </div>
+              <button
+                type="button"
+                disabled={
+                  gameOver ||
+                  barrackBuyCapacity.current <= 0 ||
+                  (playerState?.gold ?? 0) < Game.BUY_WARRIOR_COST
+                }
+                onClick={() => onBuyBarrackWarrior(entity.ownerId, entity.id)}
+                className={`rounded px-2 py-1 text-xs font-medium transition ${
+                  barrackBuyCapacity.current > 0 &&
+                  (playerState?.gold ?? 0) >= Game.BUY_WARRIOR_COST &&
+                  !gameOver
+                    ? "bg-amber-500 text-slate-900 hover:bg-amber-400"
+                    : "cursor-not-allowed bg-slate-600 text-slate-500"
+                }`}
+                title={
+                  barrackBuyCapacity.current <= 0
+                    ? "Лимит исчерпан, ждите восстановления"
+                    : (playerState?.gold ?? 0) < Game.BUY_WARRIOR_COST
+                      ? `Нужно ${Game.BUY_WARRIOR_COST} золота`
+                      : `Купить воина за ${Game.BUY_WARRIOR_COST} золота`
+                }
+              >
+                🪙{Game.BUY_WARRIOR_COST}
+              </button>
+            </div>
+          )}
           <UpgradeSection title="Улучшения барака">
             {BARACK_UPGRADE_DEFINITIONS.map((def) => {
               const owned = barrackUpgradeIds.includes(def.id);

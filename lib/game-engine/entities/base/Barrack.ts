@@ -32,6 +32,12 @@ export class Barrack extends Entity {
   private readonly canSpawn: () => boolean;
   private spawnTimerMs = 0;
 
+  /** Лимит докупки воинов: текущее и макс. значение. Восстанавливается по таймауту. */
+  private buyCapacityCurrent = 1;
+  private buyCapacityMax = 1;
+  private buyCapacityRestoreTimerMs = 0;
+  private static readonly BUY_CAPACITY_RESTORE_INTERVAL_MS = 20000;
+
   constructor(props: BarrackProps) {
     super({
       ...props,
@@ -64,6 +70,20 @@ export class Barrack extends Entity {
           this.spawnUnit(i);
         }
       }
+    }
+
+    // Восстановление лимита докупки воинов
+    if (this.buyCapacityCurrent < this.buyCapacityMax) {
+      this.buyCapacityRestoreTimerMs += deltaTimeMs;
+      while (
+        this.buyCapacityCurrent < this.buyCapacityMax &&
+        this.buyCapacityRestoreTimerMs >= Barrack.BUY_CAPACITY_RESTORE_INTERVAL_MS
+      ) {
+        this.buyCapacityRestoreTimerMs -= Barrack.BUY_CAPACITY_RESTORE_INTERVAL_MS;
+        this.buyCapacityCurrent += 1;
+      }
+    } else {
+      this.buyCapacityRestoreTimerMs = 0;
     }
   }
 
@@ -123,6 +143,27 @@ export class Barrack extends Entity {
     this.applyMaxHpChange(totalHp);
     this.spawnIntervalMs = Math.round(this.baseSpawnIntervalMs * spawnSpeedMult);
     this.spawnCount = Math.max(1, spawnCount);
+    this.buyCapacityMax = this.spawnCount;
+    if (this.buyCapacityCurrent > this.buyCapacityMax) {
+      this.buyCapacityCurrent = this.buyCapacityMax;
+    }
+  }
+
+  getBuyCapacity(): { current: number; max: number } {
+    return { current: this.buyCapacityCurrent, max: this.buyCapacityMax };
+  }
+
+  /** Потребляет 1 слот докупки. Возвращает true, если слот был доступен. */
+  consumeBuyCapacity(): boolean {
+    if (this.buyCapacityCurrent <= 0) return false;
+    this.buyCapacityCurrent -= 1;
+    this.buyCapacityRestoreTimerMs = 0;
+    return true;
+  }
+
+  /** Спавнит одного воина (для докупки за золото). */
+  spawnBuyWarrior(): void {
+    this.spawnUnit(0);
   }
 
   setRouteFromConfig(configs: { x: number; y: number }[]): void {

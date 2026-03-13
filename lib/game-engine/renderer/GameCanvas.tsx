@@ -58,7 +58,7 @@ export function GameCanvas({
   const lastPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const lastPinchRef = useRef<{ dist: number; pan: { x: number; y: number }; center: { x: number; y: number } } | null>(null);
 
-  const { state, setBarrackRoute, setBuildingPosition, addBarrack, addTower, buyUpgrade, buyBarrackUpgrade, setSpawningEnabled, setAutoDevelopmentEnabled } =
+  const { state, setBarrackRoute, setBuildingPosition, addBarrack, addTower, buyUpgrade, buyBarrackUpgrade, buyBarrackWarrior, setSpawningEnabled, setAutoDevelopmentEnabled } =
     useGameEngine(baseCanvasRef, config, viewportRef);
 
   const defaultPlayer = config.players[0];
@@ -1150,16 +1150,19 @@ export function GameCanvas({
         }
         const playerState = state.playerStates[entity.ownerId];
         const barrackUpgradeIds = state.barrackUpgrades?.[entity.id] ?? [];
+        const barrackBuyCapacity = state.barrackBuyCapacity?.[entity.id];
         return (
           <BuildingUpgradePanel
             entity={entity}
             config={config}
             playerState={playerState}
             barrackUpgradeIds={barrackUpgradeIds}
+            barrackBuyCapacity={barrackBuyCapacity}
             position={{ left, top }}
             bounds={{ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }}
             onBuyUpgrade={buyUpgrade}
             onBuyBarrackUpgrade={buyBarrackUpgrade}
+            onBuyBarrackWarrior={buyBarrackWarrior}
             onClose={() => setUpgradePanelBuildingId(null)}
             gameOver={state.gameOver}
           />
