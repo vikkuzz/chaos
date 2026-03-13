@@ -58,7 +58,7 @@ export function GameCanvas({
   const lastPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const lastPinchRef = useRef<{ dist: number; pan: { x: number; y: number }; center: { x: number; y: number } } | null>(null);
 
-  const { state, setBarrackRoute, setBuildingPosition, addBarrack, addTower, buyUpgrade, buyBarrackUpgrade, setSpawningEnabled } =
+  const { state, setBarrackRoute, setBuildingPosition, addBarrack, addTower, buyUpgrade, buyBarrackUpgrade, setSpawningEnabled, setAutoDevelopmentEnabled } =
     useGameEngine(baseCanvasRef, config, viewportRef);
 
   const defaultPlayer = config.players[0];
@@ -95,8 +95,17 @@ export function GameCanvas({
     Record<string, { x: number; y: number }>
   >({});
   const [gridSnapEnabled, setGridSnapEnabled] = useState(true);
+  const [autoDevelopmentEnabled, setAutoDevelopmentEnabledState] = useState(true);
 
   const BUILDINGS_STORAGE_KEY = "rts-buildings";
+
+  const toggleAutoDevelopment = useCallback(() => {
+    setAutoDevelopmentEnabledState((v) => {
+      const next = !v;
+      setAutoDevelopmentEnabled(next);
+      return next;
+    });
+  }, [setAutoDevelopmentEnabled]);
 
   const POINT_RADIUS = 7;
   const POINT_HIT_RADIUS = 10;
@@ -970,6 +979,19 @@ export function GameCanvas({
           className="relative shrink-0 w-full h-full min-h-0"
           style={{ aspectRatio: "1", maxWidth: "100%", maxHeight: "100%" }}
         >
+        {effectiveMode === "test" && (
+          <div className="absolute top-2 left-2 z-10 rounded-lg bg-slate-800/90 px-2 py-1.5 shadow-lg md:top-3 md:left-3">
+            <label className="flex cursor-pointer items-center gap-2 text-xs sm:text-sm text-slate-200">
+              <input
+                type="checkbox"
+                checked={autoDevelopmentEnabled}
+                onChange={toggleAutoDevelopment}
+                className="h-4 w-4 rounded border-slate-600 bg-slate-700 text-amber-500 focus:ring-amber-500"
+              />
+              <span>Авторазвитие</span>
+            </label>
+          </div>
+        )}
         <div className="absolute bottom-2 right-2 z-10 flex flex-col gap-1 rounded-lg bg-slate-800/90 p-1 shadow-lg md:bottom-3 md:right-3">
           <button
             type="button"

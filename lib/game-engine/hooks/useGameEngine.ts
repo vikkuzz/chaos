@@ -28,6 +28,8 @@ export interface UseGameEngineResult {
   buyUpgrade: (playerId: string, upgradeId: string) => boolean;
   buyBarrackUpgrade: (playerId: string, barrackId: string, upgradeId: string) => boolean;
   setSpawningEnabled: (enabled: boolean) => void;
+  setAutoDevelopmentEnabled: (enabled: boolean) => void;
+  isAutoDevelopmentEnabled: () => boolean;
 }
 
 const EXTRA_BUILDINGS_KEY = "rts-extra-buildings";
@@ -179,6 +181,14 @@ export function useGameEngine(
     gameRef.current?.setSpawningEnabled(enabled);
   }, []);
 
+  const setAutoDevelopmentEnabled = useCallback((enabled: boolean): void => {
+    gameRef.current?.setAutoDevelopmentEnabled(enabled);
+  }, []);
+
+  const isAutoDevelopmentEnabled = useCallback((): boolean => {
+    return gameRef.current?.isAutoDevelopmentEnabled() ?? true;
+  }, []);
+
   return {
     game,
     state,
@@ -189,5 +199,7 @@ export function useGameEngine(
     buyUpgrade,
     buyBarrackUpgrade,
     setSpawningEnabled,
+    setAutoDevelopmentEnabled,
+    isAutoDevelopmentEnabled,
   };
 }

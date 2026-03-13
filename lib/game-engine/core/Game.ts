@@ -15,6 +15,7 @@ import {
   getBuildingUpgradeMultipliers,
   getBarrackUpgradeMultipliers,
 } from "../upgrades/definitions";
+import { runAutoDevelopment } from "../ai/AutoDevelopment";
 import type { WarriorStats } from "../entities/units/WarriorTypes";
 
 export interface PlayerState {
@@ -67,6 +68,9 @@ export class Game {
   private static readonly GOLD_PER_SECOND_CASTLE = 3;
   private static readonly GOLD_PER_SECOND_BUILDING = 1;
   private readonly subscribers = new Set<Subscriber>();
+
+  private autoDevelopmentEnabled = true;
+  private lastAutoDevTimeMs = 0;
 
   constructor(config: GameConfig) {
     validateGameConfig(config);
@@ -237,6 +241,18 @@ export class Game {
       }
     }
 
+    // Авторазвитие: периодически покупает улучшения для всех игроков
+    if (this.spawningEnabled) {
+      const snapshot = this.getStateSnapshot();
+      this.lastAutoDevTimeMs = runAutoDevelopment(
+        this,
+        snapshot,
+        this.autoDevelopmentEnabled,
+        this.lastAutoDevTimeMs,
+        this.timeMs,
+      );
+    }
+
     this.emitState();
   }
 
@@ -400,6 +416,14 @@ export class Game {
 
   setSpawningEnabled(enabled: boolean): void {
     this.spawningEnabled = enabled;
+  }
+
+  setAutoDevelopmentEnabled(enabled: boolean): void {
+    this.autoDevelopmentEnabled = enabled;
+  }
+
+  isAutoDevelopmentEnabled(): boolean {
+    return this.autoDevelopmentEnabled;
   }
 
   /**
