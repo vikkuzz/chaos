@@ -19,12 +19,14 @@ export interface BuildingUpgradePanelProps {
   playerState: PlayerState | undefined;
   barrackUpgradeIds: string[];
   barrackBuyCapacity?: BarrackBuyCapacity;
+  barrackRepairCooldownMs?: number;
   position: { left: number; top: number };
   /** Границы области карты (viewport) для ограничения панели. */
   bounds?: { left: number; top: number; right: number; bottom: number };
   onBuyUpgrade: (playerId: string, upgradeId: string) => boolean;
   onBuyBarrackUpgrade: (playerId: string, barrackId: string, upgradeId: string) => boolean;
   onBuyBarrackWarrior?: (playerId: string, barrackId: string) => boolean;
+  onRepairBarrack?: (playerId: string, barrackId: string) => boolean;
   onClose: () => void;
   gameOver?: boolean;
 }
@@ -107,11 +109,13 @@ export function BuildingUpgradePanel({
   playerState,
   barrackUpgradeIds,
   barrackBuyCapacity,
+  barrackRepairCooldownMs = 0,
   position,
   bounds,
   onBuyUpgrade,
   onBuyBarrackUpgrade,
   onBuyBarrackWarrior,
+  onRepairBarrack,
   onClose,
   gameOver,
 }: BuildingUpgradePanelProps) {
@@ -224,6 +228,38 @@ export function BuildingUpgradePanel({
           <div className="text-[10px] text-slate-500">
             HP {entity.hp}/{entity.maxHp} · спавн {(entity as { spawnIntervalMs?: number }).spawnIntervalMs ?? "—"} мс · за цикл {(entity as { spawnCount?: number }).spawnCount ?? 1}
           </div>
+          {onRepairBarrack && (
+            <div className="flex items-center justify-between gap-2 rounded border border-slate-600 bg-slate-700/40 px-2 py-1.5">
+              <div className="text-xs">
+                <span className="text-slate-400">Ремонт:</span>{" "}
+                <span className="text-slate-200">+20% HP</span>
+                {barrackRepairCooldownMs > 0 && (
+                  <span className="ml-1 text-slate-500">
+                    (откат {Math.ceil(barrackRepairCooldownMs / 1000)} сек)
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                disabled={gameOver || barrackRepairCooldownMs > 0 || entity.hp >= entity.maxHp}
+                onClick={() => onRepairBarrack(entity.ownerId, entity.id)}
+                className={`rounded px-2 py-1 text-xs font-medium transition ${
+                  barrackRepairCooldownMs <= 0 && entity.hp < entity.maxHp && !gameOver
+                    ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                    : "cursor-not-allowed bg-slate-600 text-slate-500"
+                }`}
+                title={
+                  entity.hp >= entity.maxHp
+                    ? "Барак на полном HP"
+                    : barrackRepairCooldownMs > 0
+                      ? `Откат ${Math.ceil(barrackRepairCooldownMs / 1000)} сек`
+                      : "Бесплатный ремонт на 20% HP (откат 2 мин)"
+                }
+              >
+                🔧 Ремонт
+              </button>
+            </div>
+          )}
           {onBuyBarrackWarrior && barrackBuyCapacity && (
             <div className="flex items-center justify-between gap-2 rounded border border-slate-600 bg-slate-700/40 px-2 py-1.5">
               <div className="text-xs">

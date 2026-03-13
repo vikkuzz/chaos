@@ -38,6 +38,11 @@ export class Barrack extends Entity {
   private buyCapacityRestoreTimerMs = 0;
   private static readonly BUY_CAPACITY_RESTORE_INTERVAL_MS = 20000;
 
+  /** Откат ремонта (мс до следующего доступного ремонта). */
+  private repairCooldownMs = 0;
+  private static readonly REPAIR_COOLDOWN_MS = 120000; // 2 минуты
+  private static readonly REPAIR_HP_RATIO = 0.2; // 20% от макс. HP
+
   constructor(props: BarrackProps) {
     super({
       ...props,
@@ -85,6 +90,24 @@ export class Barrack extends Entity {
     } else {
       this.buyCapacityRestoreTimerMs = 0;
     }
+
+    // Откат ремонта
+    if (this.repairCooldownMs > 0) {
+      this.repairCooldownMs = Math.max(0, this.repairCooldownMs - deltaTimeMs);
+    }
+  }
+
+  /** Ремонт на 20% HP. Бесплатно, откат 2 мин. Возвращает true, если ремонт выполнен. */
+  repair(): boolean {
+    if (!this.isAlive || this.repairCooldownMs > 0) return false;
+    const healAmount = Math.round(this.maxHp * Barrack.REPAIR_HP_RATIO);
+    this.heal(healAmount);
+    this.repairCooldownMs = Barrack.REPAIR_COOLDOWN_MS;
+    return true;
+  }
+
+  getRepairCooldownMs(): number {
+    return this.repairCooldownMs;
   }
 
   /** Радиус круга спавна — воины появляются по окружности вокруг барака. */

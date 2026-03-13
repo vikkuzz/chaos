@@ -43,6 +43,7 @@ export interface GameStateSnapshot {
   playerStates: Record<string, PlayerState>;
   barrackUpgrades: Record<string, string[]>;
   barrackBuyCapacity: Record<string, BarrackBuyCapacity>;
+  barrackRepairCooldownMs: Record<string, number>;
   attackEffects: readonly AttackEffect[];
 }
 
@@ -277,9 +278,11 @@ export class Game {
       barrackUpgrades[id] = [...ids];
     }
     const barrackBuyCapacity: Record<string, BarrackBuyCapacity> = {};
+    const barrackRepairCooldownMs: Record<string, number> = {};
     for (const [id, barrack] of this.barracks) {
       if (barrack.isAlive) {
         barrackBuyCapacity[id] = barrack.getBuyCapacity();
+        barrackRepairCooldownMs[id] = barrack.getRepairCooldownMs();
       }
     }
     // Оставляем только недавние эффекты атаки.
@@ -296,6 +299,7 @@ export class Game {
       playerStates,
       barrackUpgrades,
       barrackBuyCapacity,
+      barrackRepairCooldownMs,
       attackEffects: [...this.attackEffects],
     };
   }
@@ -371,6 +375,13 @@ export class Game {
     ps.gold -= Game.BUY_WARRIOR_COST;
     barrack.spawnBuyWarrior();
     return true;
+  }
+
+  /** Ремонт барака на 20% HP. Бесплатно, откат 2 мин. */
+  repairBarrack(playerId: string, barrackId: string): boolean {
+    const barrack = this.barracks.get(barrackId);
+    if (!barrack || barrack.ownerId !== playerId || !barrack.isAlive) return false;
+    return barrack.repair();
   }
 
   private applyBuildingUpgradesToExisting(playerId: string): void {

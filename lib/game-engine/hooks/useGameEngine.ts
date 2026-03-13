@@ -28,6 +28,7 @@ export interface UseGameEngineResult {
   buyUpgrade: (playerId: string, upgradeId: string) => boolean;
   buyBarrackUpgrade: (playerId: string, barrackId: string, upgradeId: string) => boolean;
   buyBarrackWarrior: (playerId: string, barrackId: string) => boolean;
+  repairBarrack: (playerId: string, barrackId: string) => boolean;
   setSpawningEnabled: (enabled: boolean) => void;
   setAutoDevelopmentEnabled: (enabled: boolean) => void;
   isAutoDevelopmentEnabled: () => boolean;
@@ -185,6 +186,13 @@ export function useGameEngine(
     [],
   );
 
+  const repairBarrack = useCallback(
+    (playerId: string, barrackId: string): boolean => {
+      return gameRef.current?.repairBarrack(playerId, barrackId) ?? false;
+    },
+    [],
+  );
+
   const setSpawningEnabled = useCallback((enabled: boolean): void => {
     gameRef.current?.setSpawningEnabled(enabled);
   }, []);
@@ -207,6 +215,7 @@ export function useGameEngine(
     buyUpgrade,
     buyBarrackUpgrade,
     buyBarrackWarrior,
+    repairBarrack,
     setSpawningEnabled,
     setAutoDevelopmentEnabled,
     isAutoDevelopmentEnabled,

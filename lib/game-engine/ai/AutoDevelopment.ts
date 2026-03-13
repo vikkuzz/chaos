@@ -48,7 +48,7 @@ function barrackNeedsDefense(
 }
 
 interface PurchaseOption {
-  type: "upgrade" | "buildingUpgrade" | "barrackUpgrade" | "defenseWarrior";
+  type: "upgrade" | "buildingUpgrade" | "barrackUpgrade" | "defenseWarrior" | "repairBarrack";
   cost: number;
   upgradeId?: string;
   barrackId?: string;
@@ -76,7 +76,7 @@ export function runAutoDevelopment(
 
     const options: PurchaseOption[] = [];
 
-    // Приоритет: докупка воина для защиты барака от приближающихся врагов
+    // Приоритет 1: докупка воина для защиты барака от приближающихся врагов
     for (const entity of snapshot.entities) {
       if (
         entity.kind !== "barrack" ||
@@ -91,6 +91,27 @@ export function runAutoDevelopment(
         options.push({
           type: "defenseWarrior",
           cost: 0, // наивысший приоритет
+          barrackId: entity.id,
+        });
+      }
+    }
+
+    // Приоритет 2: ремонт повреждённых бараков (бесплатно, откат 2 мин)
+    const barrackRepairCooldown = snapshot.barrackRepairCooldownMs ?? {};
+    for (const entity of snapshot.entities) {
+      if (
+        entity.kind !== "barrack" ||
+        entity.ownerId !== playerId ||
+        !entity.isAlive
+      )
+        continue;
+      if (
+        entity.hp < entity.maxHp &&
+        (barrackRepairCooldown[entity.id] ?? 0) <= 0
+      ) {
+        options.push({
+          type: "repairBarrack",
+          cost: 1, // после defense, до платных улучшений
           barrackId: entity.id,
         });
       }
@@ -133,12 +154,14 @@ export function runAutoDevelopment(
       }
     }
 
-    // Покупаем самое дешёвое (приоритет — защита барака)
+    // Покупаем/выполняем самое приоритетное действие
     if (options.length > 0) {
       options.sort((a, b) => a.cost - b.cost);
       const choice = options[0];
       if (choice.type === "defenseWarrior" && choice.barrackId) {
         game.buyBarrackWarrior(playerId, choice.barrackId);
+      } else if (choice.type === "repairBarrack" && choice.barrackId) {
+        game.repairBarrack(playerId, choice.barrackId);
       } else if (choice.type === "barrackUpgrade" && choice.barrackId && choice.upgradeId) {
         game.buyBarrackUpgrade(playerId, choice.barrackId, choice.upgradeId);
       } else if (choice.upgradeId) {
