@@ -160,7 +160,7 @@ export function GameCanvas({
   useEffect(() => {
     const overlay = overlayCanvasRef.current;
     if (!overlay) return;
-    const prevent = (e: TouchEvent) => e.preventDefault();
+    const prevent = (e: Event) => e.preventDefault();
     overlay.addEventListener("touchmove", prevent, { passive: false });
     overlay.addEventListener("wheel", prevent, { passive: false });
     return () => {

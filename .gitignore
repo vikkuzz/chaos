@@ -31,6 +31,8 @@ next-env.d.ts
 # IDE и редакторы
 .idea/
 .vscode/
+.cursor/
+.eslintcache
 *.swp
 *.swo
 *~

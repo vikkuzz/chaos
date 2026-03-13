@@ -4,7 +4,7 @@ export interface UpgradeEffect {
   description: string;
 }
 
-export interface UpgradeDefinition {
+export interface UpgradeSpec {
   id: UpgradeId;
   name: string;
   description: string;
@@ -16,9 +16,9 @@ export interface UpgradeDefinition {
  * Описание применённого апгрейда.
  */
 export class Upgrade {
-  public readonly definition: UpgradeDefinition;
+  public readonly definition: UpgradeSpec;
 
-  constructor(definition: UpgradeDefinition) {
+  constructor(definition: UpgradeSpec) {
     this.definition = definition;
   }
 }
