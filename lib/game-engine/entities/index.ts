@@ -1,4 +1,5 @@
 export * from "./Entity";
+export * from "./NeutralPoint";
 export * from "./base/Base";
 export * from "./base/Castle";
 export * from "./base/Barrack";

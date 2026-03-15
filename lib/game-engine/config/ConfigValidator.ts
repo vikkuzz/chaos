@@ -22,4 +22,20 @@ export function validateGameConfig(config: GameConfig): void {
       }
     }
   }
+
+  if (config.neutralPoints) {
+    const ids = new Set<string>();
+    for (const pt of config.neutralPoints) {
+      if (ids.has(pt.id)) {
+        throw new Error(`GameConfig: neutralPoints: дублирующий id "${pt.id}".`);
+      }
+      ids.add(pt.id);
+      if (pt.radius <= 0 || pt.captureRadius <= 0) {
+        throw new Error(`GameConfig: neutralPoints "${pt.id}": radius и captureRadius должны быть > 0.`);
+      }
+      if (pt.position.x < 0 || pt.position.x > config.mapWidth || pt.position.y < 0 || pt.position.y > config.mapHeight) {
+        throw new Error(`GameConfig: neutralPoints "${pt.id}": позиция вне границ карты.`);
+      }
+    }
+  }
 }

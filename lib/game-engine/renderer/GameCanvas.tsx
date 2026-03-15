@@ -58,14 +58,14 @@ export function GameCanvas({
   const lastPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const lastPinchRef = useRef<{ dist: number; pan: { x: number; y: number }; center: { x: number; y: number } } | null>(null);
 
-  const { state, setBarrackRoute, setBuildingPosition, addBarrack, addTower, buyUpgrade, buyBarrackUpgrade, buyBarrackWarrior, repairBarrack, setSpawningEnabled, setAutoDevelopmentEnabled } =
+  const { state, setBarrackRoute, setBuildingPosition, addBarrack, addTower, addNeutralPoint, removeNeutralPoint, buyUpgrade, buyBarrackUpgrade, buyBarrackWarrior, repairBarrack, setSpawningEnabled, setAutoDevelopmentEnabled } =
     useGameEngine(baseCanvasRef, config, viewportRef);
 
   const defaultPlayer = config.players[0];
   const defaultBarrack = defaultPlayer?.barracks[0];
 
   type EditorMode = "routes" | "buildings" | "test";
-  type BuildingAction = "move" | "upgrade" | "addBarrack" | "addTower";
+  type BuildingAction = "move" | "upgrade" | "addBarrack" | "addTower" | "addNeutralPoint" | "removeNeutralPoint";
 
   const [editorMode, setEditorMode] = useState<EditorMode>("test");
   const effectiveMode = isDev ? editorMode : ("test" as EditorMode);
@@ -359,6 +359,16 @@ export function GameCanvas({
     return best ? { id: best.id, ownerId: best.ownerId } : null;
   };
 
+  const findNeutralPointAt = (x: number, y: number): { id: string } | null => {
+    if (!state?.neutralPoints) return null;
+    for (const pt of state.neutralPoints) {
+      const dx = x - pt.position.x;
+      const dy = y - pt.position.y;
+      if (Math.hypot(dx, dy) <= pt.radius + 8) return { id: pt.id };
+    }
+    return null;
+  };
+
   const clampToMap = (x: number, y: number) => ({
     x: Math.max(0, Math.min(config.mapWidth, x)),
     y: Math.max(0, Math.min(config.mapHeight, y)),
@@ -442,7 +452,7 @@ export function GameCanvas({
           return;
         }
         if (buildingAction === "addBarrack" || buildingAction === "addTower") {
-          if (!building && selectedPlayerId) {
+          if (!building && !findNeutralPointAt(x, y) && selectedPlayerId) {
             const pos = toFinalPosition(x, y);
             const id =
               buildingAction === "addBarrack"
@@ -459,6 +469,20 @@ export function GameCanvas({
                 return next;
               });
             }
+          }
+          return;
+        }
+        if (buildingAction === "addNeutralPoint") {
+          if (!building && !findNeutralPointAt(x, y)) {
+            const pos = toFinalPosition(x, y);
+            addNeutralPoint(pos);
+          }
+          return;
+        }
+        if (buildingAction === "removeNeutralPoint") {
+          const neutralPt = findNeutralPointAt(x, y);
+          if (neutralPt) {
+            removeNeutralPoint(neutralPt.id);
           }
           return;
         }
@@ -497,6 +521,8 @@ export function GameCanvas({
       state,
       addBarrack,
       addTower,
+      addNeutralPoint,
+      removeNeutralPoint,
       setSelectedPlayerId,
       setSelectedBarrackId,
       setUpgradePanelBuildingId,
@@ -925,6 +951,21 @@ export function GameCanvas({
               >
                 + Башня
               </button>
+              <button
+                type="button"
+                onClick={() => setBuildingAction("addNeutralPoint")}
+                className={`rounded px-2 py-1 text-xs font-medium transition ${buildingAction === "addNeutralPoint" ? "bg-amber-500 text-slate-900" : "text-slate-300 hover:bg-slate-600"}`}
+              >
+                + Нейтральная точка
+              </button>
+              <button
+                type="button"
+                onClick={() => setBuildingAction("removeNeutralPoint")}
+                className={`rounded px-2 py-1 text-xs font-medium transition ${buildingAction === "removeNeutralPoint" ? "bg-red-600 text-white" : "text-slate-300 hover:bg-slate-600"}`}
+                title="Клик по нейтральной точке — удалить"
+              >
+                − Нейтральная точка
+              </button>
             </div>
             <span className="text-slate-400">Игрок:</span>
             <div className="flex gap-1">
@@ -965,7 +1006,13 @@ export function GameCanvas({
                   ? "Клик по замку или бараку — открыть панель улучшений."
                   : buildingAction === "addBarrack"
                     ? "Клик по пустому месту — добавить барак."
-                    : "Клик по пустому месту — добавить башню."}{" "}
+                    : buildingAction === "addTower"
+                      ? "Клик по пустому месту — добавить башню."
+                      : buildingAction === "addNeutralPoint"
+                        ? "Клик по пустому месту — добавить нейтральную точку."
+                        : buildingAction === "removeNeutralPoint"
+                          ? "Клик по нейтральной точке — удалить."
+                          : ""}{" "}
               Позиции сохраняются автоматически.
             </span>
           </>

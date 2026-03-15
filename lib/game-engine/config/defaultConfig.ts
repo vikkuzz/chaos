@@ -41,11 +41,21 @@ export interface PlayerBaseConfig {
   towers: TowerConfig[];
 }
 
+export interface NeutralPointConfig {
+  id: string;
+  position: { x: number; y: number };
+  radius: number;
+  captureRadius: number;
+  goldPerInterval: number;
+  goldIntervalMs: number;
+}
+
 export interface GameConfig {
   mapWidth: number;
   mapHeight: number;
   players: PlayerBaseConfig[];
   warriorTypes: WarriorTypeMap;
+  neutralPoints?: NeutralPointConfig[];
 }
 
 /**
@@ -325,4 +335,94 @@ export const defaultGameConfig: GameConfig = {
       ],
     },
   ],
+  neutralPoints: [
+    {
+        "id": "neutral-1773608493380-963de8",
+        "position": {
+            "x": 940,
+            "y": 220
+        },
+        "radius": 12,
+        "captureRadius": 80,
+        "goldPerInterval": 2,
+        "goldIntervalMs": 5000
+    },
+    {
+        "id": "neutral-1773608501052-abbe5b",
+        "position": {
+            "x": 940,
+            "y": 720
+        },
+        "radius": 12,
+        "captureRadius": 80,
+        "goldPerInterval": 2,
+        "goldIntervalMs": 5000
+    },
+    {
+        "id": "neutral-1773608506308-ccaf97",
+        "position": {
+            "x": 760,
+            "y": 940
+        },
+        "radius": 12,
+        "captureRadius": 80,
+        "goldPerInterval": 2,
+        "goldIntervalMs": 5000
+    },
+    {
+        "id": "neutral-1773608511556-df8299",
+        "position": {
+            "x": 240,
+            "y": 940
+        },
+        "radius": 12,
+        "captureRadius": 80,
+        "goldPerInterval": 2,
+        "goldIntervalMs": 5000
+    },
+    {
+        "id": "neutral-1773608535356-fdd6ad",
+        "position": {
+            "x": 760,
+            "y": 60
+        },
+        "radius": 12,
+        "captureRadius": 80,
+        "goldPerInterval": 2,
+        "goldIntervalMs": 5000
+    },
+    {
+        "id": "neutral-1773608543124-aa184f",
+        "position": {
+            "x": 60,
+            "y": 720
+        },
+        "radius": 12,
+        "captureRadius": 80,
+        "goldPerInterval": 2,
+        "goldIntervalMs": 5000
+    },
+    {
+        "id": "neutral-1773608547500-a8580f",
+        "position": {
+            "x": 60,
+            "y": 220
+        },
+        "radius": 12,
+        "captureRadius": 80,
+        "goldPerInterval": 2,
+        "goldIntervalMs": 5000
+    },
+    {
+        "id": "neutral-1773608553604-39c2ca",
+        "position": {
+            "x": 240,
+            "y": 60
+        },
+        "radius": 12,
+        "captureRadius": 80,
+        "goldPerInterval": 2,
+        "goldIntervalMs": 5000
+    }
+],
 };

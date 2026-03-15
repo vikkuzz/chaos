@@ -65,6 +65,10 @@ export class CanvasRenderer implements Renderer {
       this.drawEntity(entity);
     }
 
+    for (const pt of state.neutralPoints ?? []) {
+      this.drawNeutralPoint(pt);
+    }
+
     this.drawAttackEffects(state.attackEffects ?? [], state.timeMs);
 
     if (viewport) {
@@ -113,6 +117,27 @@ export class CanvasRenderer implements Renderer {
 
   destroy(): void {
     // Пока специальных ресурсов нет.
+  }
+
+  private drawNeutralPoint(pt: { position: { x: number; y: number }; radius: number; ownerId: string | null }): void {
+    const { ctx } = this;
+    const { x, y } = pt.position;
+    const r = pt.radius;
+
+    ctx.fillStyle = pt.ownerId
+      ? this.playerColors.get(pt.ownerId) ?? "#888888"
+      : "#6b7280";
+    ctx.strokeStyle = pt.ownerId ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.3)";
+    ctx.lineWidth = 1.5;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y - r);
+    ctx.lineTo(x + r, y);
+    ctx.lineTo(x, y + r);
+    ctx.lineTo(x - r, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
   }
 
   private drawEntity(entity: Entity): void {

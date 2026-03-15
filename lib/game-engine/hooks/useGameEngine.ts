@@ -18,6 +18,15 @@ export interface ExtraBuilding {
   position: { x: number; y: number };
 }
 
+export interface StoredNeutralPoint {
+  id: string;
+  position: { x: number; y: number };
+  radius: number;
+  captureRadius: number;
+  goldPerInterval: number;
+  goldIntervalMs: number;
+}
+
 export interface UseGameEngineResult {
   game: Game | null;
   state: GameStateSnapshot | null;
@@ -25,6 +34,8 @@ export interface UseGameEngineResult {
   setBuildingPosition: (entityId: string, position: { x: number; y: number }) => void;
   addBarrack: (playerId: string, position: { x: number; y: number }) => string | null;
   addTower: (playerId: string, position: { x: number; y: number }) => string | null;
+  addNeutralPoint: (position: { x: number; y: number }, options?: Partial<StoredNeutralPoint>) => string | null;
+  removeNeutralPoint: (id: string) => boolean;
   buyUpgrade: (playerId: string, upgradeId: string) => boolean;
   buyBarrackUpgrade: (playerId: string, barrackId: string, upgradeId: string) => boolean;
   buyBarrackWarrior: (playerId: string, barrackId: string) => boolean;
@@ -35,6 +46,7 @@ export interface UseGameEngineResult {
 }
 
 const EXTRA_BUILDINGS_KEY = "rts-extra-buildings";
+const NEUTRAL_POINTS_KEY = "rts-neutral-points";
 
 /**
  * Инициализирует Game, GameLoop и CanvasRenderer, привязывая их к canvasRef.
@@ -73,6 +85,26 @@ export function useGameEngine(
             } else if (b.kind === "tower") {
               engine.addTower(b.ownerId, b.position, { id: b.id });
             }
+          }
+        }
+      }
+    } catch {
+      // игнорируем ошибки
+    }
+
+    try {
+      const raw = window.localStorage.getItem(NEUTRAL_POINTS_KEY);
+      if (raw) {
+        const list = JSON.parse(raw) as StoredNeutralPoint[];
+        if (Array.isArray(list)) {
+          for (const pt of list) {
+            engine.addNeutralPoint(pt.position, {
+              id: pt.id,
+              radius: pt.radius,
+              captureRadius: pt.captureRadius,
+              goldPerInterval: pt.goldPerInterval,
+              goldIntervalMs: pt.goldIntervalMs,
+            });
           }
         }
       }
@@ -168,6 +200,46 @@ export function useGameEngine(
     [],
   );
 
+  const addNeutralPoint = useCallback(
+    (position: { x: number; y: number }, options?: Partial<StoredNeutralPoint>): string | null => {
+      const id = gameRef.current?.addNeutralPoint(position, options) ?? null;
+      if (id && typeof window !== "undefined") {
+        try {
+          const raw = window.localStorage.getItem(NEUTRAL_POINTS_KEY);
+          const list = raw ? (JSON.parse(raw) as StoredNeutralPoint[]) : [];
+          list.push({
+            id,
+            position,
+            radius: options?.radius ?? 12,
+            captureRadius: options?.captureRadius ?? 80,
+            goldPerInterval: options?.goldPerInterval ?? 2,
+            goldIntervalMs: options?.goldIntervalMs ?? 5000,
+          });
+          window.localStorage.setItem(NEUTRAL_POINTS_KEY, JSON.stringify(list));
+        } catch {
+          // игнорируем
+        }
+      }
+      return id;
+    },
+    [],
+  );
+
+  const removeNeutralPoint = useCallback((id: string): boolean => {
+    const ok = gameRef.current?.removeNeutralPoint(id) ?? false;
+    if (ok && typeof window !== "undefined") {
+      try {
+        const raw = window.localStorage.getItem(NEUTRAL_POINTS_KEY);
+        const list = raw ? (JSON.parse(raw) as StoredNeutralPoint[]) : [];
+        const filtered = list.filter((p) => p.id !== id);
+        window.localStorage.setItem(NEUTRAL_POINTS_KEY, JSON.stringify(filtered));
+      } catch {
+        // игнорируем
+      }
+    }
+    return ok;
+  }, []);
+
   const buyUpgrade = useCallback((playerId: string, upgradeId: string): boolean => {
     return gameRef.current?.buyUpgrade(playerId, upgradeId) ?? false;
   }, []);
@@ -212,6 +284,8 @@ export function useGameEngine(
     setBuildingPosition,
     addBarrack,
     addTower,
+    addNeutralPoint,
+    removeNeutralPoint,
     buyUpgrade,
     buyBarrackUpgrade,
     buyBarrackWarrior,

@@ -1,4 +1,4 @@
-import { GameConfig } from "../config/defaultConfig";
+import { GameConfig, type NeutralPointConfig } from "../config/defaultConfig";
 import { Entity, EntityId } from "../entities/Entity";
 import { Barrack } from "../entities/base/Barrack";
 import { Castle } from "../entities/base/Castle";
@@ -17,6 +17,7 @@ import {
 } from "../upgrades/definitions";
 import { runAutoDevelopment } from "../ai/AutoDevelopment";
 import type { WarriorStats } from "../entities/units/WarriorTypes";
+import { NeutralPoint, type NeutralPointSnapshot } from "../entities/NeutralPoint";
 
 export interface PlayerState {
   gold: number;
@@ -38,6 +39,7 @@ export interface BarrackBuyCapacity {
 export interface GameStateSnapshot {
   timeMs: number;
   entities: readonly Entity[];
+  neutralPoints: readonly NeutralPointSnapshot[];
   gameOver: boolean;
   winnerIds: string[];
   playerStates: Record<string, PlayerState>;
@@ -64,6 +66,7 @@ export class Game {
   private readonly barracks = new Map<EntityId, Barrack>();
   private readonly playerStates = new Map<string, PlayerState>();
   private readonly barrackUpgrades = new Map<EntityId, string[]>();
+  private readonly neutralPoints = new Map<string, NeutralPoint>();
 
   private readonly movementSystem = new MovementSystem();
   private readonly combatSystem = new CombatSystem();
@@ -150,6 +153,11 @@ export class Game {
         this.addEntity(tower);
       }
     }
+
+    for (const ptConfig of config.neutralPoints ?? []) {
+      const pt = new NeutralPoint(ptConfig);
+      this.neutralPoints.set(pt.id, pt);
+    }
   }
 
   private addEntity(entity: Entity): void {
@@ -211,6 +219,23 @@ export class Game {
 
     // Система движения и атаки воинов.
     this.movementSystem.update(this.warriors.values(), this.entities, deltaTimeMs, onWarriorKilled);
+
+    // Захват нейтральных точек: воин в радиусе = последний владелец
+    if (this.spawningEnabled) {
+      for (const warrior of this.warriors.values()) {
+        if (!warrior.isAlive) continue;
+        for (const pt of this.neutralPoints.values()) {
+          pt.tryCapture(warrior.position, warrior.ownerId);
+        }
+      }
+      for (const pt of this.neutralPoints.values()) {
+        const result = pt.update(deltaTimeMs);
+        if (result) {
+          const ps = this.playerStates.get(result.playerId);
+          if (ps) ps.gold += result.gold;
+        }
+      }
+    }
 
     // Атака зданий (замок, башни) по вражеским воинам.
     this.combatSystem.update(
@@ -294,6 +319,7 @@ export class Game {
     return {
       timeMs: this.timeMs,
       entities: Array.from(this.entities.values()),
+      neutralPoints: Array.from(this.neutralPoints.values()).map((pt) => pt.toSnapshot()),
       gameOver: this.gameOver,
       winnerIds: this.winnerIds,
       playerStates,
@@ -567,5 +593,33 @@ export class Game {
     this.addEntity(tower);
     this.applyBuildingUpgradesToExisting(playerId);
     return tower.id;
+  }
+
+  /**
+   * Добавить нейтральную точку захвата (для редактора).
+   */
+  addNeutralPoint(
+    position: { x: number; y: number },
+    options?: { id?: string; radius?: number; captureRadius?: number; goldPerInterval?: number; goldIntervalMs?: number },
+  ): string | null {
+    const id =
+      options?.id ?? `neutral-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    if (this.neutralPoints.has(id)) return null;
+
+    const pt = new NeutralPoint({
+      id,
+      position: { ...position },
+      radius: options?.radius ?? 12,
+      captureRadius: options?.captureRadius ?? 80,
+      goldPerInterval: options?.goldPerInterval ?? 2,
+      goldIntervalMs: options?.goldIntervalMs ?? 5000,
+    });
+    this.neutralPoints.set(id, pt);
+    return id;
+  }
+
+  /** Удалить нейтральную точку (для редактора). */
+  removeNeutralPoint(id: string): boolean {
+    return this.neutralPoints.delete(id);
   }
 }
