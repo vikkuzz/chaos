@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, MouseEvent, TouchEvent } from "react";
-import { useGameEngine } from "../hooks/useGameEngine";
+import { useGameEngine, type GameEngineMode } from "../hooks/useGameEngine";
 import type { GameConfig } from "../config/defaultConfig";
 import type { ViewportState } from "./CanvasRenderer";
 import { DevelopmentPanel } from "./DevelopmentPanel";
@@ -36,6 +36,14 @@ export interface GameCanvasProps {
    * Шаг сетки для привязки зданий (0 = без привязки).
    */
   gridSize?: number;
+  /**
+   * Режим: local — локальная игра, multiplayer — подключение к серверу.
+   */
+  mode?: GameEngineMode;
+  /**
+   * URL сокет-сервера для multiplayer.
+   */
+  socketUrl?: string;
 }
 
 export function GameCanvas({
@@ -45,6 +53,8 @@ export function GameCanvas({
   editableBarrackId,
   persistKey,
   gridSize = 20,
+  mode = "local",
+  socketUrl,
 }: GameCanvasProps) {
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -58,8 +68,8 @@ export function GameCanvas({
   const lastPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const lastPinchRef = useRef<{ dist: number; pan: { x: number; y: number }; center: { x: number; y: number } } | null>(null);
 
-  const { state, setBarrackRoute, setBuildingPosition, addBarrack, addTower, addNeutralPoint, removeNeutralPoint, buyUpgrade, buyBarrackUpgrade, buyBarrackWarrior, repairBarrack, setSpawningEnabled, setAutoDevelopmentEnabled } =
-    useGameEngine(baseCanvasRef, config, viewportRef);
+  const { state, playerId, setBarrackRoute, setBuildingPosition, addBarrack, addTower, addNeutralPoint, removeNeutralPoint, buyUpgrade, buyBarrackUpgrade, buyBarrackWarrior, repairBarrack, setSpawningEnabled, setAutoDevelopmentEnabled } =
+    useGameEngine(baseCanvasRef, config, viewportRef, { mode, socketUrl });
 
   const defaultPlayer = config.players[0];
   const defaultBarrack = defaultPlayer?.barracks[0];
@@ -79,6 +89,13 @@ export function GameCanvas({
   const [devPanelPlayerId, setDevPanelPlayerId] = useState<string | null>(
     () => config.players[0]?.id ?? null,
   );
+
+  useEffect(() => {
+    if (mode === "multiplayer" && playerId) {
+      setSelectedPlayerId(playerId);
+      setDevPanelPlayerId(playerId);
+    }
+  }, [mode, playerId]);
   const [buildingAction, setBuildingAction] = useState<BuildingAction>("move");
 
   const [selectedBarrackId, setSelectedBarrackId] = useState<string | null>(

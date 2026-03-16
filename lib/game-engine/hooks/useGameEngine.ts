@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
+import { io, type Socket } from "socket.io-client";
 import { Game } from "../core/Game";
 import type { GameConfig } from "../config/defaultConfig";
 import { GameLoop } from "../core/GameLoop";
@@ -10,6 +11,13 @@ import {
   type ViewportState,
 } from "../renderer/CanvasRenderer";
 import type { GameStateSnapshot } from "../core/Game";
+
+export type GameEngineMode = "local" | "multiplayer";
+
+export interface UseGameEngineOptions {
+  mode?: GameEngineMode;
+  socketUrl?: string;
+}
 
 export interface ExtraBuilding {
   id: string;
@@ -30,6 +38,7 @@ export interface StoredNeutralPoint {
 export interface UseGameEngineResult {
   game: Game | null;
   state: GameStateSnapshot | null;
+  playerId: string | null;
   setBarrackRoute: (barrackId: string, waypoints: { x: number; y: number }[]) => void;
   setBuildingPosition: (entityId: string, position: { x: number; y: number }) => void;
   addBarrack: (playerId: string, position: { x: number; y: number }) => string | null;
@@ -52,23 +61,79 @@ const NEUTRAL_POINTS_KEY = "rts-neutral-points";
  * Инициализирует Game, GameLoop и CanvasRenderer, привязывая их к canvasRef.
  * viewportRef: ref с актуальным viewport (pan, zoom, size). Если задан, canvas
  * ресайзится под viewport и рендер использует pan/zoom.
+ * mode: 'local' — локальная игра; 'multiplayer' — подключение к серверу по сокетам.
  */
 export function useGameEngine(
   canvasRef: RefObject<HTMLCanvasElement>,
   config: GameConfig,
   viewportRef?: RefObject<ViewportState | null>,
+  options?: UseGameEngineOptions,
 ): UseGameEngineResult {
+  const mode = options?.mode ?? "local";
+  const socketUrl = options?.socketUrl ?? process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:3001";
+
   const [game, setGame] = useState<Game | null>(null);
   const [state, setState] = useState<GameStateSnapshot | null>(null);
+  const [playerId, setPlayerId] = useState<string | null>(null);
 
   const gameRef = useRef<Game | null>(null);
   const loopRef = useRef<GameLoop | null>(null);
   const rendererRef = useRef<CanvasRenderer | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const stateRef = useRef<GameStateSnapshot | null>(null);
+  const playerIdRef = useRef<string | null>(null);
+  playerIdRef.current = playerId;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    if (mode === "multiplayer") {
+      const socket = io(socketUrl);
+      socketRef.current = socket;
+      socket.emit("lobby:join", {});
+      socket.on("lobby:assigned", (payload: { playerId: string; slot: number }) => {
+        playerIdRef.current = payload.playerId;
+        setPlayerId(payload.playerId);
+      });
+      socket.on("game:state", (snapshot: GameStateSnapshot) => {
+        stateRef.current = snapshot;
+        setState(snapshot);
+      });
+
+      const playerColors = Object.fromEntries(config.players.map((p) => [p.id, p.color]));
+      const renderer = new CanvasRenderer(canvas, { showRoutes: true, playerColors });
+      rendererRef.current = renderer;
+
+      let rafId: number;
+      const renderLoop = () => {
+        const vp = viewportRef?.current;
+        const st = stateRef.current;
+        if (st && canvas) {
+          if (vp && vp.width > 0 && vp.height > 0) {
+            renderer.resize(vp.width, vp.height);
+            renderer.render(st, vp);
+          } else {
+            renderer.resize(config.mapWidth, config.mapHeight);
+            renderer.render(st);
+          }
+        }
+        rafId = requestAnimationFrame(renderLoop);
+      };
+      rafId = requestAnimationFrame(renderLoop);
+
+      return () => {
+        socket.disconnect();
+        socketRef.current = null;
+        cancelAnimationFrame(rafId);
+        renderer.destroy();
+        rendererRef.current = null;
+        setGame(null);
+        setState(null);
+        setPlayerId(null);
+      };
+    }
 
     const engine = new Game(config);
     gameRef.current = engine;
@@ -154,18 +219,32 @@ export function useGameEngine(
       setGame(null);
       setState(null);
     };
-  }, [canvasRef, config, viewportRef]);
+  }, [canvasRef, config, viewportRef, mode]);
 
   const setBarrackRoute = useCallback((barrackId: string, waypoints: { x: number; y: number }[]) => {
-    gameRef.current?.setBarrackRoute(barrackId, waypoints);
-  }, []);
+    if (mode === "multiplayer") {
+      const pid = playerIdRef.current;
+      if (pid && socketRef.current) {
+        socketRef.current.emit("game:action", {
+          type: "setBarrackRoute",
+          playerId: pid,
+          barrackId,
+          waypoints,
+        });
+      }
+    } else {
+      gameRef.current?.setBarrackRoute(barrackId, waypoints);
+    }
+  }, [mode]);
 
   const setBuildingPosition = useCallback((entityId: string, position: { x: number; y: number }) => {
+    if (mode === "multiplayer") return;
     gameRef.current?.setBuildingPosition(entityId, position);
-  }, []);
+  }, [mode]);
 
   const addBarrack = useCallback(
     (playerId: string, position: { x: number; y: number }): string | null => {
+      if (mode === "multiplayer") return null;
       const id = gameRef.current?.addBarrack(playerId, position) ?? null;
       if (id && typeof window !== "undefined") {
         try {
@@ -179,11 +258,12 @@ export function useGameEngine(
       }
       return id;
     },
-    [],
+    [mode],
   );
 
   const addTower = useCallback(
     (playerId: string, position: { x: number; y: number }): string | null => {
+      if (mode === "multiplayer") return null;
       const id = gameRef.current?.addTower(playerId, position) ?? null;
       if (id && typeof window !== "undefined") {
         try {
@@ -197,11 +277,12 @@ export function useGameEngine(
       }
       return id;
     },
-    [],
+    [mode],
   );
 
   const addNeutralPoint = useCallback(
     (position: { x: number; y: number }, options?: Partial<StoredNeutralPoint>): string | null => {
+      if (mode === "multiplayer") return null;
       const id = gameRef.current?.addNeutralPoint(position, options) ?? null;
       if (id && typeof window !== "undefined") {
         try {
@@ -222,10 +303,11 @@ export function useGameEngine(
       }
       return id;
     },
-    [],
+    [mode],
   );
 
   const removeNeutralPoint = useCallback((id: string): boolean => {
+    if (mode === "multiplayer") return false;
     const ok = gameRef.current?.removeNeutralPoint(id) ?? false;
     if (ok && typeof window !== "undefined") {
       try {
@@ -238,40 +320,91 @@ export function useGameEngine(
       }
     }
     return ok;
-  }, []);
+  }, [mode]);
 
-  const buyUpgrade = useCallback((playerId: string, upgradeId: string): boolean => {
-    return gameRef.current?.buyUpgrade(playerId, upgradeId) ?? false;
-  }, []);
+  const buyUpgrade = useCallback((targetPlayerId: string, upgradeId: string): boolean => {
+    if (mode === "multiplayer") {
+      const pid = playerIdRef.current;
+      if (pid === targetPlayerId && socketRef.current) {
+        socketRef.current.emit("game:action", {
+          type: "buyUpgrade",
+          playerId: targetPlayerId,
+          upgradeId,
+        });
+        return true;
+      }
+      return false;
+    }
+    return gameRef.current?.buyUpgrade(targetPlayerId, upgradeId) ?? false;
+  }, [mode]);
 
   const buyBarrackUpgrade = useCallback(
-    (playerId: string, barrackId: string, upgradeId: string): boolean => {
-      return gameRef.current?.buyBarrackUpgrade(playerId, barrackId, upgradeId) ?? false;
+    (targetPlayerId: string, barrackId: string, upgradeId: string): boolean => {
+      if (mode === "multiplayer") {
+        const pid = playerIdRef.current;
+        if (pid === targetPlayerId && socketRef.current) {
+          socketRef.current.emit("game:action", {
+            type: "buyBarrackUpgrade",
+            playerId: targetPlayerId,
+            barrackId,
+            upgradeId,
+          });
+          return true;
+        }
+        return false;
+      }
+      return gameRef.current?.buyBarrackUpgrade(targetPlayerId, barrackId, upgradeId) ?? false;
     },
-    [],
+    [mode],
   );
 
   const buyBarrackWarrior = useCallback(
-    (playerId: string, barrackId: string): boolean => {
-      return gameRef.current?.buyBarrackWarrior(playerId, barrackId) ?? false;
+    (targetPlayerId: string, barrackId: string): boolean => {
+      if (mode === "multiplayer") {
+        const pid = playerIdRef.current;
+        if (pid === targetPlayerId && socketRef.current) {
+          socketRef.current.emit("game:action", {
+            type: "buyBarrackWarrior",
+            playerId: targetPlayerId,
+            barrackId,
+          });
+          return true;
+        }
+        return false;
+      }
+      return gameRef.current?.buyBarrackWarrior(targetPlayerId, barrackId) ?? false;
     },
-    [],
+    [mode],
   );
 
   const repairBarrack = useCallback(
-    (playerId: string, barrackId: string): boolean => {
-      return gameRef.current?.repairBarrack(playerId, barrackId) ?? false;
+    (targetPlayerId: string, barrackId: string): boolean => {
+      if (mode === "multiplayer") {
+        const pid = playerIdRef.current;
+        if (pid === targetPlayerId && socketRef.current) {
+          socketRef.current.emit("game:action", {
+            type: "repairBarrack",
+            playerId: targetPlayerId,
+            barrackId,
+          });
+          return true;
+        }
+        return false;
+      }
+      return gameRef.current?.repairBarrack(targetPlayerId, barrackId) ?? false;
     },
-    [],
+    [mode],
   );
 
   const setSpawningEnabled = useCallback((enabled: boolean): void => {
+    if (mode === "multiplayer") return;
     gameRef.current?.setSpawningEnabled(enabled);
-  }, []);
+  }, [mode]);
 
   const setAutoDevelopmentEnabled = useCallback((enabled: boolean): void => {
+    if (mode === "multiplayer") return;
     gameRef.current?.setAutoDevelopmentEnabled(enabled);
-  }, []);
+  }, [mode]);
 
   const isAutoDevelopmentEnabled = useCallback((): boolean => {
     return gameRef.current?.isAutoDevelopmentEnabled() ?? true;
@@ -280,6 +413,7 @@ export function useGameEngine(
   return {
     game,
     state,
+    playerId,
     setBarrackRoute,
     setBuildingPosition,
     addBarrack,

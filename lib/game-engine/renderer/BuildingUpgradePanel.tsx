@@ -1,7 +1,6 @@
 "use client";
 
-import type { Entity } from "../entities/Entity";
-import { Game, type PlayerState, type BarrackBuyCapacity } from "../core/Game";
+import { Game, type PlayerState, type BarrackBuyCapacity, type EntitySnapshot } from "../core/Game";
 import type { GameConfig } from "../config/defaultConfig";
 import {
   UPGRADE_DEFINITIONS,
@@ -14,7 +13,7 @@ import {
 } from "../upgrades/definitions";
 
 export interface BuildingUpgradePanelProps {
-  entity: Entity;
+  entity: EntitySnapshot;
   config: GameConfig;
   playerState: PlayerState | undefined;
   barrackUpgradeIds: string[];

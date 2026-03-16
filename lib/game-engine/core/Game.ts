@@ -36,9 +36,21 @@ export interface BarrackBuyCapacity {
   max: number;
 }
 
+/** Сериализуемый снимок сущности для передачи по сети и рендера. */
+export interface EntitySnapshot {
+  id: string;
+  ownerId: string;
+  kind: string;
+  position: { x: number; y: number };
+  radius: number;
+  hp: number;
+  maxHp: number;
+  isAlive: boolean;
+}
+
 export interface GameStateSnapshot {
   timeMs: number;
-  entities: readonly Entity[];
+  entities: readonly EntitySnapshot[];
   neutralPoints: readonly NeutralPointSnapshot[];
   gameOver: boolean;
   winnerIds: string[];
@@ -48,6 +60,9 @@ export interface GameStateSnapshot {
   barrackRepairCooldownMs: Record<string, number>;
   attackEffects: readonly AttackEffect[];
 }
+
+/** Сериализуемая версия снимка (JSON-совместима). */
+export type GameStateSnapshotSerialized = GameStateSnapshot;
 
 type Subscriber = (state: GameStateSnapshot) => void;
 
@@ -82,6 +97,7 @@ export class Game {
 
   private autoDevelopmentEnabled = true;
   private lastAutoDevTimeMs = 0;
+  private humanPlayerIds = new Set<string>();
 
   constructor(config: GameConfig) {
     validateGameConfig(config);
@@ -274,7 +290,7 @@ export class Game {
       }
     }
 
-    // Авторазвитие: периодически покупает улучшения для всех игроков
+    // Авторазвитие: периодически покупает улучшения для AI-игроков (не humanPlayerIds)
     if (this.spawningEnabled) {
       const snapshot = this.getStateSnapshot();
       this.lastAutoDevTimeMs = runAutoDevelopment(
@@ -283,6 +299,7 @@ export class Game {
         this.autoDevelopmentEnabled,
         this.lastAutoDevTimeMs,
         this.timeMs,
+        this.humanPlayerIds,
       );
     }
 
@@ -316,9 +333,20 @@ export class Game {
     this.attackEffects.length = 0;
     this.attackEffects.push(...recentEffects);
 
+    const entities: EntitySnapshot[] = Array.from(this.entities.values()).map((e) => ({
+      id: e.id,
+      ownerId: e.ownerId,
+      kind: e.kind,
+      position: { x: e.position.x, y: e.position.y },
+      radius: e.radius,
+      hp: e.hp,
+      maxHp: e.maxHp,
+      isAlive: e.isAlive,
+    }));
+
     return {
       timeMs: this.timeMs,
-      entities: Array.from(this.entities.values()),
+      entities,
       neutralPoints: Array.from(this.neutralPoints.values()).map((pt) => pt.toSnapshot()),
       gameOver: this.gameOver,
       winnerIds: this.winnerIds,
@@ -487,6 +515,10 @@ export class Game {
 
   setAutoDevelopmentEnabled(enabled: boolean): void {
     this.autoDevelopmentEnabled = enabled;
+  }
+
+  setHumanPlayerIds(ids: Set<string>): void {
+    this.humanPlayerIds = ids;
   }
 
   isAutoDevelopmentEnabled(): boolean {

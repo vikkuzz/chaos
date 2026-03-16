@@ -57,6 +57,7 @@ interface PurchaseOption {
 /**
  * Простой алгоритм авторазвития: периодически покупает самое дешёвое
  * доступное улучшение для каждого игрока. При угрозе бараку — докупает воина.
+ * humanPlayerIds — игроки под управлением человека, для них авторазвитие отключено.
  */
 export function runAutoDevelopment(
   game: Game,
@@ -64,6 +65,7 @@ export function runAutoDevelopment(
   enabled: boolean,
   lastTickTimeMs: number,
   currentTimeMs: number,
+  humanPlayerIds: Set<string> = new Set(),
 ): number {
   if (!enabled) return lastTickTimeMs;
   if (currentTimeMs - lastTickTimeMs < TICK_INTERVAL_MS) return lastTickTimeMs;
@@ -71,6 +73,7 @@ export function runAutoDevelopment(
   const buyWarriorCost = Game.BUY_WARRIOR_COST;
 
   for (const playerId of Object.keys(snapshot.playerStates)) {
+    if (humanPlayerIds.has(playerId)) continue;
     const ps = snapshot.playerStates[playerId];
     if (!ps) continue;
 
