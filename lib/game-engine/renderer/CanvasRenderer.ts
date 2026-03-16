@@ -1,6 +1,5 @@
 import { Renderer } from "./Renderer";
-import { GameStateSnapshot } from "../core/Game";
-import { Entity } from "../entities/Entity";
+import { GameStateSnapshot, type EntitySnapshot } from "../core/Game";
 
 export interface ViewportState {
   panX: number;
@@ -140,7 +139,7 @@ export class CanvasRenderer implements Renderer {
     ctx.stroke();
   }
 
-  private drawEntity(entity: Entity): void {
+  private drawEntity(entity: EntitySnapshot): void {
     const { ctx } = this;
 
     switch (entity.kind) {
