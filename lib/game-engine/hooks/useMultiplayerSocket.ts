@@ -25,6 +25,18 @@ export interface UseMultiplayerSocketResult {
   connected: boolean;
 }
 
+const SESSION_STORAGE_KEY = "rts-session-id";
+
+function getOrCreateSessionId(): string {
+  if (typeof window === "undefined") return "";
+  let id = sessionStorage.getItem(SESSION_STORAGE_KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    sessionStorage.setItem(SESSION_STORAGE_KEY, id);
+  }
+  return id;
+}
+
 export function useMultiplayerSocket(socketUrl: string): UseMultiplayerSocketResult {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
@@ -44,7 +56,8 @@ export function useMultiplayerSocket(socketUrl: string): UseMultiplayerSocketRes
 
     s.on("connect", () => {
       setConnected(true);
-      s.emit("lobby:join", {});
+      const sessionId = getOrCreateSessionId();
+      s.emit("lobby:join", { sessionId });
     });
 
     s.on("disconnect", () => {

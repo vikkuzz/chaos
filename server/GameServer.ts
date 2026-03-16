@@ -8,6 +8,7 @@ import type { GameAction, LobbyStatePayload } from "./types";
 
 const ROOM_ID = "game-room";
 const PLAYER_IDS = ["player-1", "player-2", "player-3", "player-4"];
+const RECONNECT_TIMEOUT_MS = 60000;
 
 export class GameServer {
   private readonly io: SocketServer;
@@ -15,6 +16,8 @@ export class GameServer {
   private readonly loop: ServerGameLoop;
   private readonly humanPlayerIds = new Set<string>();
   private readonly readyPlayers = new Set<string>();
+  private readonly sessionToPlayer = new Map<string, string>();
+  private readonly playerDisconnectTime = new Map<string, number>();
   private gameStarted = false;
 
   constructor(httpServer: HttpServer) {
@@ -31,15 +34,17 @@ export class GameServer {
   }
 
   private handleConnection(socket: Socket): void {
-    socket.on("lobby:join", (payload?: { playerSlot?: number }) => {
-      const slot = this.assignPlayer(socket, payload?.playerSlot);
+    socket.on("lobby:join", (payload?: { playerSlot?: number; sessionId?: string }) => {
+      const slot = this.assignPlayer(socket, payload?.playerSlot, payload?.sessionId);
       if (slot !== -1) {
         const playerId = PLAYER_IDS[slot];
+        (socket as Socket & { playerId?: string; sessionId?: string }).playerId = playerId;
+        (socket as Socket & { playerId?: string; sessionId?: string }).sessionId = payload?.sessionId;
+
         socket.emit("lobby:assigned", { playerId, slot });
         this.humanPlayerIds.add(playerId);
         this.game.setHumanPlayerIds(this.humanPlayerIds);
         socket.join(ROOM_ID);
-        (socket as Socket & { playerId?: string }).playerId = playerId;
 
         const snapshot = this.game.getStateSnapshot() as GameStateSnapshotSerialized;
         socket.emit("game:state", snapshot);
@@ -62,11 +67,16 @@ export class GameServer {
     });
 
     socket.on("disconnect", () => {
-      const playerId = (socket as Socket & { playerId?: string }).playerId;
+      const playerId = (socket as Socket & { playerId?: string; sessionId?: string }).playerId;
+      const sessionId = (socket as Socket & { playerId?: string; sessionId?: string }).sessionId;
       if (playerId) {
         this.humanPlayerIds.delete(playerId);
         this.readyPlayers.delete(playerId);
         this.game.setHumanPlayerIds(this.humanPlayerIds);
+        if (sessionId) {
+          this.sessionToPlayer.set(sessionId, playerId);
+          this.playerDisconnectTime.set(playerId, Date.now());
+        }
         this.broadcastLobbyState();
       }
     });
@@ -109,7 +119,7 @@ export class GameServer {
     }
   }
 
-  private assignPlayer(socket: Socket, preferredSlot?: number): number {
+  private assignPlayer(socket: Socket, preferredSlot?: number, sessionId?: string): number {
     const usedSlots = new Set<number>();
     for (const [, s] of this.io.sockets.sockets) {
       const pid = (s as Socket & { playerId?: string }).playerId;
@@ -118,6 +128,21 @@ export class GameServer {
         if (idx >= 0) usedSlots.add(idx);
       }
     }
+
+    if (sessionId) {
+      const previousPlayerId = this.sessionToPlayer.get(sessionId);
+      if (previousPlayerId) {
+        const slot = PLAYER_IDS.indexOf(previousPlayerId);
+        const disconnectTime = this.playerDisconnectTime.get(previousPlayerId) ?? 0;
+        const elapsed = Date.now() - disconnectTime;
+        if (slot >= 0 && !usedSlots.has(slot) && elapsed < RECONNECT_TIMEOUT_MS) {
+          this.sessionToPlayer.delete(sessionId);
+          this.playerDisconnectTime.delete(previousPlayerId);
+          return slot;
+        }
+      }
+    }
+
     if (preferredSlot !== undefined && preferredSlot >= 0 && preferredSlot < 4 && !usedSlots.has(preferredSlot)) {
       return preferredSlot;
     }

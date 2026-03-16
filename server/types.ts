@@ -18,6 +18,7 @@ export type GameAction =
 
 export interface LobbyJoinPayload {
   playerSlot?: number;
+  sessionId?: string;
 }
 
 export interface LobbyAssignedPayload {
