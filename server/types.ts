@@ -24,3 +24,14 @@ export interface LobbyAssignedPayload {
   playerId: string;
   slot: number;
 }
+
+export interface LobbyPlayer {
+  playerId: string;
+  slot: number;
+  ready: boolean;
+}
+
+export interface LobbyStatePayload {
+  players: LobbyPlayer[];
+  gameStarted: boolean;
+}

@@ -44,6 +44,12 @@ export interface GameCanvasProps {
    * URL сокет-сервера для multiplayer.
    */
   socketUrl?: string;
+  /**
+   * При multiplayer с лобби — сокет и состояние после game:start.
+   */
+  multiplayerSocket?: import("socket.io-client").Socket;
+  multiplayerPlayerId?: string | null;
+  multiplayerGameState?: import("../core/Game").GameStateSnapshot | null;
 }
 
 export function GameCanvas({
@@ -55,6 +61,9 @@ export function GameCanvas({
   gridSize = 20,
   mode = "local",
   socketUrl,
+  multiplayerSocket,
+  multiplayerPlayerId,
+  multiplayerGameState,
 }: GameCanvasProps) {
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -69,7 +78,13 @@ export function GameCanvas({
   const lastPinchRef = useRef<{ dist: number; pan: { x: number; y: number }; center: { x: number; y: number } } | null>(null);
 
   const { state, playerId, setBarrackRoute, setBuildingPosition, addBarrack, addTower, addNeutralPoint, removeNeutralPoint, buyUpgrade, buyBarrackUpgrade, buyBarrackWarrior, repairBarrack, setSpawningEnabled, setAutoDevelopmentEnabled } =
-    useGameEngine(baseCanvasRef, config, viewportRef, { mode, socketUrl });
+    useGameEngine(baseCanvasRef, config, viewportRef, {
+      mode,
+      socketUrl,
+      multiplayerSocket,
+      multiplayerPlayerId,
+      multiplayerGameState,
+    });
 
   const defaultPlayer = config.players[0];
   const defaultBarrack = defaultPlayer?.barracks[0];

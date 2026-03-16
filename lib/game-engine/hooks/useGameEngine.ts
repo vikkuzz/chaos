@@ -17,6 +17,10 @@ export type GameEngineMode = "local" | "multiplayer";
 export interface UseGameEngineOptions {
   mode?: GameEngineMode;
   socketUrl?: string;
+  /** При mode=multiplayer — сокет и состояние от useMultiplayerSocket (после game:start). */
+  multiplayerSocket?: Socket;
+  multiplayerPlayerId?: string | null;
+  multiplayerGameState?: GameStateSnapshot | null;
 }
 
 export interface ExtraBuilding {
@@ -71,6 +75,9 @@ export function useGameEngine(
 ): UseGameEngineResult {
   const mode = options?.mode ?? "local";
   const socketUrl = options?.socketUrl ?? process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:3001";
+  const multiplayerSocket = options?.multiplayerSocket;
+  const multiplayerPlayerId = options?.multiplayerPlayerId;
+  const multiplayerGameState = options?.multiplayerGameState;
 
   const [game, setGame] = useState<Game | null>(null);
   const [state, setState] = useState<GameStateSnapshot | null>(null);
@@ -82,25 +89,26 @@ export function useGameEngine(
   const socketRef = useRef<Socket | null>(null);
   const stateRef = useRef<GameStateSnapshot | null>(null);
   const playerIdRef = useRef<string | null>(null);
-  playerIdRef.current = playerId;
+  playerIdRef.current = multiplayerPlayerId ?? playerId;
+
+  useEffect(() => {
+    if (multiplayerGameState !== undefined) {
+      stateRef.current = multiplayerGameState;
+      setState(multiplayerGameState);
+    }
+  }, [multiplayerGameState]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    if (mode === "multiplayer") {
-      const socket = io(socketUrl);
-      socketRef.current = socket;
-      socket.emit("lobby:join", {});
-      socket.on("lobby:assigned", (payload: { playerId: string; slot: number }) => {
-        playerIdRef.current = payload.playerId;
-        setPlayerId(payload.playerId);
-      });
-      socket.on("game:state", (snapshot: GameStateSnapshot) => {
-        stateRef.current = snapshot;
-        setState(snapshot);
-      });
+    if (mode === "multiplayer" && multiplayerSocket && multiplayerPlayerId) {
+      socketRef.current = multiplayerSocket;
+      playerIdRef.current = multiplayerPlayerId;
+      stateRef.current = multiplayerGameState ?? null;
+      setState(multiplayerGameState ?? null);
+      setPlayerId(multiplayerPlayerId);
 
       const playerColors = Object.fromEntries(config.players.map((p) => [p.id, p.color]));
       const renderer = new CanvasRenderer(canvas, { showRoutes: true, playerColors });
@@ -123,16 +131,26 @@ export function useGameEngine(
       };
       rafId = requestAnimationFrame(renderLoop);
 
+      const syncState = (snapshot: GameStateSnapshot) => {
+        stateRef.current = snapshot;
+        setState(snapshot);
+      };
+      multiplayerSocket.on("game:state", syncState);
+
       return () => {
-        socket.disconnect();
-        socketRef.current = null;
+        multiplayerSocket.off("game:state", syncState);
         cancelAnimationFrame(rafId);
         renderer.destroy();
         rendererRef.current = null;
+        socketRef.current = null;
         setGame(null);
         setState(null);
         setPlayerId(null);
       };
+    }
+
+    if (mode === "multiplayer" && !multiplayerSocket) {
+      return;
     }
 
     const engine = new Game(config);
@@ -219,7 +237,7 @@ export function useGameEngine(
       setGame(null);
       setState(null);
     };
-  }, [canvasRef, config, viewportRef, mode]);
+  }, [canvasRef, config, viewportRef, mode, multiplayerSocket, multiplayerPlayerId]);
 
   const setBarrackRoute = useCallback((barrackId: string, waypoints: { x: number; y: number }[]) => {
     if (mode === "multiplayer") {
