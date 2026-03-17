@@ -1,5 +1,6 @@
 import { Entity } from "../entities/Entity";
 import { Warrior } from "../entities/units/Warrior";
+import { Hero } from "../entities/units/Hero";
 import { Point, type PointLike } from "../utils/Point";
 
 /**
@@ -11,8 +12,9 @@ export class MovementSystem {
     warriors: Iterable<Warrior>,
     allEntities: Map<string, Entity>,
     deltaTimeMs: number,
-    onWarriorKilled?: (killerOwnerId: string) => void,
+    onWarriorKilled?: (killerOwnerId: string, victim?: Entity) => void,
     onWarriorAttack?: (from: PointLike, to: PointLike) => void,
+    onHeroKill?: (hero: Hero, victim: Entity) => void,
   ): void {
     const deltaSeconds = deltaTimeMs / 1000;
     const entitiesList = Array.from(allEntities.values());
@@ -57,7 +59,10 @@ export class MovementSystem {
           const wasAlive = nearestEnemy.isAlive;
           nearestEnemy.takeDamage(warrior.stats.attackDamage);
           if (wasWarrior && wasAlive && !nearestEnemy.isAlive) {
-            onWarriorKilled?.(warrior.ownerId);
+            onWarriorKilled?.(warrior.ownerId, nearestEnemy);
+            if (warrior.isHero && warrior instanceof Hero) {
+              onHeroKill?.(warrior, nearestEnemy);
+            }
           }
           warrior.attackCooldownMs = attackIntervalMs;
           continue;

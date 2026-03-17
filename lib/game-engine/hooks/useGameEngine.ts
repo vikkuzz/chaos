@@ -53,6 +53,8 @@ export interface UseGameEngineResult {
   buyBarrackUpgrade: (playerId: string, barrackId: string, upgradeId: string) => boolean;
   buyBarrackWarrior: (playerId: string, barrackId: string) => boolean;
   repairBarrack: (playerId: string, barrackId: string) => boolean;
+  castCastleSpell: (playerId: string, castleId: string) => boolean;
+  summonHero: (playerId: string, barrackId: string, heroTypeId: string) => boolean;
   setSpawningEnabled: (enabled: boolean) => void;
   setAutoDevelopmentEnabled: (enabled: boolean) => void;
   isAutoDevelopmentEnabled: () => boolean;
@@ -414,6 +416,45 @@ export function useGameEngine(
     [mode],
   );
 
+  const castCastleSpell = useCallback(
+    (targetPlayerId: string, castleId: string): boolean => {
+      if (mode === "multiplayer") {
+        const pid = playerIdRef.current;
+        if (pid === targetPlayerId && socketRef.current) {
+          socketRef.current.emit("game:action", {
+            type: "castCastleSpell",
+            playerId: targetPlayerId,
+            castleId,
+          });
+          return true;
+        }
+        return false;
+      }
+      return gameRef.current?.castCastleSpell(targetPlayerId, castleId) ?? false;
+    },
+    [mode],
+  );
+
+  const summonHero = useCallback(
+    (targetPlayerId: string, barrackId: string, heroTypeId: string): boolean => {
+      if (mode === "multiplayer") {
+        const pid = playerIdRef.current;
+        if (pid === targetPlayerId && socketRef.current) {
+          socketRef.current.emit("game:action", {
+            type: "summonHero",
+            playerId: targetPlayerId,
+            barrackId,
+            heroTypeId,
+          });
+          return true;
+        }
+        return false;
+      }
+      return gameRef.current?.summonHero(targetPlayerId, barrackId, heroTypeId) ?? false;
+    },
+    [mode],
+  );
+
   const setSpawningEnabled = useCallback((enabled: boolean): void => {
     if (mode === "multiplayer") return;
     gameRef.current?.setSpawningEnabled(enabled);
@@ -442,6 +483,8 @@ export function useGameEngine(
     buyBarrackUpgrade,
     buyBarrackWarrior,
     repairBarrack,
+    castCastleSpell,
+    summonHero,
     setSpawningEnabled,
     setAutoDevelopmentEnabled,
     isAutoDevelopmentEnabled,

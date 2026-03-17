@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Game, type PlayerState, type BarrackBuyCapacity, type EntitySnapshot } from "../core/Game";
+import { CASTLE_SPELL } from "../entities/base/Castle";
 import type { GameConfig } from "../config/defaultConfig";
 import {
   UPGRADE_DEFINITIONS,
@@ -12,6 +13,28 @@ import {
   type BuildingUpgradeDefinition,
   type BarrackUpgradeDefinition,
 } from "../upgrades/definitions";
+
+const HERO_SUMMON_CASTLE_LEVEL = 2;
+const HERO_SUMMON_BARRACK_LEVEL = 2;
+
+function getMaxUpgradeLevel(
+  ownedIds: string[],
+  defs: { id: string; prerequisiteId?: string }[],
+): number {
+  let maxLevel = 0;
+  for (const id of ownedIds) {
+    const def = defs.find((d) => d.id === id);
+    if (!def) continue;
+    let level = 0;
+    let current: typeof def | undefined = def;
+    while (current?.prerequisiteId) {
+      level += 1;
+      current = defs.find((d) => d.id === current!.prerequisiteId);
+    }
+    maxLevel = Math.max(maxLevel, level);
+  }
+  return maxLevel;
+}
 
 export interface BuildingUpgradePanelProps {
   entity: EntitySnapshot;
@@ -28,6 +51,12 @@ export interface BuildingUpgradePanelProps {
   onBuyBarrackUpgrade: (playerId: string, barrackId: string, upgradeId: string) => boolean;
   onBuyBarrackWarrior?: (playerId: string, barrackId: string) => boolean;
   onRepairBarrack?: (playerId: string, barrackId: string) => boolean;
+  onCastCastleSpell?: (playerId: string, castleId: string) => boolean;
+  onSummonHero?: (playerId: string, barrackId: string, heroTypeId: string) => boolean;
+  /** Типы героев, которые сейчас живы у этого игрока. */
+  aliveHeroTypeIds?: Set<string>;
+  /** Кулдауны героев для этого барака: heroTypeId -> оставшиеся мс. */
+  barrackHeroCooldowns?: Record<string, number>;
   onClose: () => void;
   gameOver?: boolean;
 }
@@ -249,6 +278,10 @@ export function BuildingUpgradePanel({
   onBuyBarrackUpgrade,
   onBuyBarrackWarrior,
   onRepairBarrack,
+  onCastCastleSpell,
+  onSummonHero,
+  aliveHeroTypeIds = new Set(),
+  barrackHeroCooldowns = {},
   onClose,
   gameOver,
 }: BuildingUpgradePanelProps) {
@@ -349,6 +382,48 @@ export function BuildingUpgradePanel({
             <div className={`text-slate-500 ${touchFriendly ? "text-sm" : "text-[10px]"}`}>
               HP {entity.hp}/{entity.maxHp} · урон {(entity as { attackDamage?: number }).attackDamage ?? "—"}
             </div>
+            {onCastCastleSpell && (() => {
+              const manaRaw = (entity as { mana?: number }).mana ?? 0;
+              const mana = Math.floor(manaRaw);
+              const cooldownMs = (entity as { spellCooldownMs?: number }).spellCooldownMs ?? 0;
+              const cooldownSec = Math.max(0, Math.ceil(cooldownMs / 1000));
+              const canCast = !gameOver && manaRaw >= CASTLE_SPELL.SPELL_COST && cooldownMs <= 0;
+              return (
+                <div
+                  className={`flex items-center justify-between gap-2 rounded border border-slate-600 bg-slate-700/40 px-3 ${
+                    touchFriendly ? "py-3 min-h-[44px]" : "py-2"
+                  }`}
+                >
+                  <div className={touchFriendly ? "text-sm" : "text-xs"}>
+                    <span className="text-slate-400">Заклинание:</span>{" "}
+                    <span className="font-medium text-slate-200">
+                      {mana}/{entity.maxMana ?? CASTLE_SPELL.MANA_MAX}
+                    </span>
+                    <span className="ml-1 text-violet-400">мана</span>
+                    {cooldownSec > 0 && (
+                      <span className="ml-1 text-amber-400 font-medium">
+                        · откат {cooldownSec} сек
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!canCast}
+                    onClick={() => onCastCastleSpell(entity.ownerId, entity.id)}
+                    className={`rounded font-medium transition ${
+                      touchFriendly ? "min-h-[44px] min-w-[80px] px-4 py-2 text-sm" : "px-2 py-1 text-xs"
+                    } ${
+                      canCast
+                        ? "bg-violet-600 text-white hover:bg-violet-500 active:bg-violet-700"
+                        : "cursor-not-allowed bg-slate-600 text-slate-500"
+                    }`}
+                    title={`Убить врагов в радиусе ${CASTLE_SPELL.SPELL_RADIUS} (стоит ${CASTLE_SPELL.SPELL_COST} маны)`}
+                  >
+                    {canCast ? "✨ Каст" : `✨ Каст (${cooldownSec})`}
+                  </button>
+                </div>
+              );
+            })()}
             <div
               className={`flex rounded-lg bg-slate-700 p-0.5 ${touchFriendly ? "min-h-[44px]" : ""}`}
               role="tablist"
@@ -477,6 +552,75 @@ export function BuildingUpgradePanel({
                 >
                   🪙{Game.BUY_WARRIOR_COST}
                 </button>
+              </div>
+            )}
+            {onSummonHero && config.heroTypes && Object.keys(config.heroTypes).length > 0 && (
+              <div>
+                <h4
+                  className={`mb-2 font-medium uppercase tracking-wide text-slate-500 ${
+                    touchFriendly ? "text-xs" : "text-[10px]"
+                  }`}
+                >
+                  Герои (замок 2 лвл, барак 2 лвл)
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {(["hero-1", "hero-2", "hero-3"] as const).map((heroTypeId) => {
+                    const baseStats = config.heroTypes![heroTypeId];
+                    if (!baseStats) return null;
+                    const heroAlive = aliveHeroTypeIds.has(heroTypeId);
+                    const cooldownMs = barrackHeroCooldowns[heroTypeId] ?? 0;
+                    const castleLevel = getMaxUpgradeLevel(
+                      playerState?.buildingUpgradeIds ?? [],
+                      BUILDING_UPGRADE_DEFINITIONS,
+                    );
+                    const barrackLevel = getMaxUpgradeLevel(
+                      barrackUpgradeIds,
+                      BARACK_UPGRADE_DEFINITIONS,
+                    );
+                    const levelOk =
+                      castleLevel >= HERO_SUMMON_CASTLE_LEVEL &&
+                      barrackLevel >= HERO_SUMMON_BARRACK_LEVEL;
+                    const canSummon =
+                      !gameOver &&
+                      levelOk &&
+                      !heroAlive &&
+                      cooldownMs <= 0 &&
+                      (playerState?.gold ?? 0) >= Game.HERO_SUMMON_COST;
+                    const reason = !levelOk
+                      ? `Замок ${castleLevel}/${HERO_SUMMON_CASTLE_LEVEL} лвл, барак ${barrackLevel}/${HERO_SUMMON_BARRACK_LEVEL} лвл`
+                      : heroAlive
+                        ? "Герой уже на поле"
+                        : cooldownMs > 0
+                          ? `Кулдаун ${Math.ceil(cooldownMs / 1000)} сек`
+                          : (playerState?.gold ?? 0) < Game.HERO_SUMMON_COST
+                            ? `Нужно 🪙${Game.HERO_SUMMON_COST}`
+                            : `Вызвать за 🪙${Game.HERO_SUMMON_COST}`;
+                    const names: Record<string, string> = {
+                      "hero-1": "Герой 1",
+                      "hero-2": "Герой 2",
+                      "hero-3": "Герой 3",
+                    };
+                    return (
+                      <button
+                        key={heroTypeId}
+                        type="button"
+                        disabled={!canSummon}
+                        onClick={() => onSummonHero(entity.ownerId, entity.id, heroTypeId)}
+                        className={`rounded border px-3 py-2 font-medium transition ${
+                          touchFriendly ? "min-h-[44px] py-2" : "py-1.5"
+                        } ${
+                          canSummon
+                            ? "border-amber-600 bg-amber-500/80 text-slate-900 hover:bg-amber-400/90"
+                            : "cursor-not-allowed border-slate-600 bg-slate-700/60 text-slate-500"
+                        }`}
+                        title={reason}
+                      >
+                        {names[heroTypeId] ?? heroTypeId} 🪙{Game.HERO_SUMMON_COST}
+                        {cooldownMs > 0 && ` (${Math.ceil(cooldownMs / 1000)})`}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
             <div>

@@ -12,3 +12,13 @@ export interface WarriorStats {
 export type WarriorTypeId = string;
 
 export type WarriorTypeMap = Record<WarriorTypeId, WarriorStats>;
+
+/** Статы героя: базовые статы воина + реген и бонус золота за убийство. */
+export interface HeroStats extends WarriorStats {
+  hpRegenPerSec: number;
+  goldBounty: number;
+}
+
+export type HeroTypeId = string;
+
+export type HeroTypeMap = Record<HeroTypeId, HeroStats>;

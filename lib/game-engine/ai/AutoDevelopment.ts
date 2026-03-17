@@ -1,4 +1,5 @@
 import { Game, type GameStateSnapshot } from "../core/Game";
+import { CASTLE_SPELL } from "../entities/base/Castle";
 import {
   UPGRADE_DEFINITIONS,
   BUILDING_UPGRADE_DEFINITIONS,
@@ -47,11 +48,32 @@ function barrackNeedsDefense(
   return hasEnemyNearby && !hasFriendlyNearby;
 }
 
+/**
+ * Есть ли враги в радиусе заклинания замка (угроза базе).
+ */
+function baseUnderThreat(
+  castle: { id: string; ownerId: string; position: { x: number; y: number } },
+  entities: readonly { kind: string; ownerId: string; position?: { x: number; y: number } }[],
+): boolean {
+  const cx = castle.position.x;
+  const cy = castle.position.y;
+  const r2 = CASTLE_SPELL.SPELL_RADIUS * CASTLE_SPELL.SPELL_RADIUS;
+
+  for (const e of entities) {
+    if (!e.position || e.kind !== "warrior" || e.ownerId === castle.ownerId) continue;
+    const dx = e.position.x - cx;
+    const dy = e.position.y - cy;
+    if (dx * dx + dy * dy <= r2) return true;
+  }
+  return false;
+}
+
 interface PurchaseOption {
-  type: "upgrade" | "buildingUpgrade" | "barrackUpgrade" | "defenseWarrior" | "repairBarrack";
+  type: "upgrade" | "buildingUpgrade" | "barrackUpgrade" | "defenseWarrior" | "repairBarrack" | "castSpell";
   cost: number;
   upgradeId?: string;
   barrackId?: string;
+  castleId?: string;
 }
 
 /**
@@ -78,6 +100,29 @@ export function runAutoDevelopment(
     if (!ps) continue;
 
     const options: PurchaseOption[] = [];
+
+    // Приоритет 0: заклинание замка при угрозе базе (враги в радиусе заклинания)
+    for (const entity of snapshot.entities) {
+      if (
+        entity.kind !== "castle" ||
+        entity.ownerId !== playerId ||
+        !entity.isAlive
+      )
+        continue;
+      const mana = (entity as { mana?: number }).mana ?? 0;
+      const spellCooldownMs = (entity as { spellCooldownMs?: number }).spellCooldownMs ?? 0;
+      if (
+        baseUnderThreat(entity, snapshot.entities) &&
+        mana >= CASTLE_SPELL.SPELL_COST &&
+        spellCooldownMs <= 0
+      ) {
+        options.push({
+          type: "castSpell",
+          cost: 0,
+          castleId: entity.id,
+        });
+      }
+    }
 
     // Приоритет 1: докупка воина для защиты барака от приближающихся врагов
     for (const entity of snapshot.entities) {
@@ -161,7 +206,9 @@ export function runAutoDevelopment(
     if (options.length > 0) {
       options.sort((a, b) => a.cost - b.cost);
       const choice = options[0];
-      if (choice.type === "defenseWarrior" && choice.barrackId) {
+      if (choice.type === "castSpell" && choice.castleId) {
+        game.castCastleSpell(playerId, choice.castleId);
+      } else if (choice.type === "defenseWarrior" && choice.barrackId) {
         game.buyBarrackWarrior(playerId, choice.barrackId);
       } else if (choice.type === "repairBarrack" && choice.barrackId) {
         game.repairBarrack(playerId, choice.barrackId);

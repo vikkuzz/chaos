@@ -166,8 +166,14 @@ export class GameServer {
       case "buyBarrackWarrior":
         this.game.buyBarrackWarrior(action.playerId, action.barrackId);
         break;
+      case "summonHero":
+        this.game.summonHero(action.playerId, action.barrackId, action.heroTypeId);
+        break;
       case "repairBarrack":
         this.game.repairBarrack(action.playerId, action.barrackId);
+        break;
+      case "castCastleSpell":
+        this.game.castCastleSpell(action.playerId, action.castleId);
         break;
       case "setBarrackRoute":
         this.game.setBarrackRoute(action.barrackId, action.waypoints);

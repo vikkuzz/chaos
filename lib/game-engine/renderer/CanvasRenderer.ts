@@ -1,5 +1,5 @@
 import { Renderer } from "./Renderer";
-import { GameStateSnapshot, type EntitySnapshot } from "../core/Game";
+import { GameStateSnapshot, type EntitySnapshot, type SpellEffect } from "../core/Game";
 
 export interface ViewportState {
   panX: number;
@@ -69,6 +69,7 @@ export class CanvasRenderer implements Renderer {
     }
 
     this.drawAttackEffects(state.attackEffects ?? [], state.timeMs);
+    this.drawSpellEffects(state.spellEffects ?? [], state.timeMs);
 
     if (viewport) {
       ctx.restore();
@@ -110,6 +111,38 @@ export class CanvasRenderer implements Renderer {
         ctx.arc(effect.to.x, effect.to.y, 6, 0, Math.PI * 2);
         ctx.fill();
       }
+      ctx.restore();
+    }
+  }
+
+  private drawSpellEffects(effects: readonly SpellEffect[], currentTimeMs: number): void {
+    const { ctx } = this;
+    const durationMs = 800;
+    const expandMs = 350;
+
+    for (const effect of effects) {
+      const age = currentTimeMs - effect.timeMs;
+      if (age >= durationMs) continue;
+
+      const expandProgress = Math.min(1, age / expandMs);
+      const fade = 1 - (age / durationMs) * (age / durationMs);
+      const r = effect.radius * expandProgress;
+      const alpha = 0.4 * fade;
+
+      const color = this.playerColors.get(effect.ownerId) ?? "#8b5cf6";
+      const rgb = color.startsWith("#") ? color.slice(1) : "8b5cf6";
+      const rv = parseInt(rgb.slice(0, 2), 16);
+      const gv = parseInt(rgb.slice(2, 4), 16);
+      const bv = parseInt(rgb.slice(4, 6), 16);
+
+      ctx.save();
+      ctx.strokeStyle = `rgba(${rv}, ${gv}, ${bv}, ${alpha})`;
+      ctx.fillStyle = `rgba(${rv}, ${gv}, ${bv}, ${alpha * 0.15})`;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(effect.position.x, effect.position.y, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fill();
       ctx.restore();
     }
   }
@@ -162,18 +195,41 @@ export class CanvasRenderer implements Renderer {
     const { x, y } = entity.position;
     const r = entity.radius;
 
-    if (entity.kind === "warrior" && entity.baseWarriorTypeId === "archer") {
-      // Лучник — ромб (стрелок)
-      ctx.beginPath();
-      ctx.moveTo(x, y - r);
-      ctx.lineTo(x + r, y);
-      ctx.lineTo(x, y + r);
-      ctx.lineTo(x - r, y);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = "rgba(255,255,255,0.4)";
-      ctx.lineWidth = 1;
-      ctx.stroke();
+    if (entity.kind === "warrior") {
+      if (entity.isHero) {
+        // Герой — звёздчатая форма с золотой обводкой
+        const color = this.playerColors.get(entity.ownerId) ?? "#ff0000";
+        ctx.fillStyle = color;
+        ctx.strokeStyle = "rgba(255, 215, 0, 0.9)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i < 8; i++) {
+          const angle = (i * Math.PI) / 4 - Math.PI / 2;
+          const xx = x + r * Math.cos(angle);
+          const yy = y + r * Math.sin(angle);
+          if (i === 0) ctx.moveTo(xx, yy);
+          else ctx.lineTo(xx, yy);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      } else if (entity.baseWarriorTypeId === "archer") {
+        // Лучник — ромб (стрелок)
+        ctx.beginPath();
+        ctx.moveTo(x, y - r);
+        ctx.lineTo(x + r, y);
+        ctx.lineTo(x, y + r);
+        ctx.lineTo(x - r, y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.4)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
     } else {
       ctx.beginPath();
       ctx.arc(x, y, r, 0, Math.PI * 2);

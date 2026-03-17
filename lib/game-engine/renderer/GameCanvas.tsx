@@ -78,7 +78,7 @@ export function GameCanvas({
   const lastPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const lastPinchRef = useRef<{ dist: number; pan: { x: number; y: number }; center: { x: number; y: number } } | null>(null);
 
-  const { state, playerId, setBarrackRoute, setBuildingPosition, addBarrack, addTower, addNeutralPoint, removeNeutralPoint, buyUpgrade, buyBarrackUpgrade, buyBarrackWarrior, repairBarrack, setSpawningEnabled, setAutoDevelopmentEnabled } =
+  const { state, playerId, setBarrackRoute, setBuildingPosition, addBarrack, addTower, addNeutralPoint, removeNeutralPoint, buyUpgrade, buyBarrackUpgrade, buyBarrackWarrior, repairBarrack, castCastleSpell, summonHero, setSpawningEnabled, setAutoDevelopmentEnabled } =
     useGameEngine(baseCanvasRef, config, viewportRef, {
       mode,
       socketUrl,
@@ -133,6 +133,14 @@ export function GameCanvas({
     mq.addEventListener("change", check);
     return () => mq.removeEventListener("change", check);
   }, []);
+
+  useEffect(() => {
+    if (!upgradePanelBuildingId || !state) return;
+    const entity = state.entities.find((e) => e.id === upgradePanelBuildingId);
+    if (!entity || !entity.isAlive) {
+      setUpgradePanelBuildingId(null);
+    }
+  }, [upgradePanelBuildingId, state]);
   const [buildingPositions, setBuildingPositions] = useState<
     Record<string, { x: number; y: number }>
   >({});
@@ -1246,6 +1254,13 @@ export function GameCanvas({
         const barrackUpgradeIds = state.barrackUpgrades?.[entity.id] ?? [];
         const barrackBuyCapacity = state.barrackBuyCapacity?.[entity.id];
         const barrackRepairCooldownMs = state.barrackRepairCooldownMs?.[entity.id] ?? 0;
+        const barrackHeroCooldowns = state.barrackHeroCooldowns?.[entity.id] ?? {};
+        const aliveHeroTypeIds = new Set(
+          state.entities
+            .filter((e) => e.isHero && e.ownerId === entity.ownerId && e.isAlive)
+            .map((e) => e.heroTypeId!)
+            .filter(Boolean),
+        );
         return (
           <BuildingUpgradePanel
             entity={entity}
@@ -1254,6 +1269,9 @@ export function GameCanvas({
             barrackUpgradeIds={barrackUpgradeIds}
             barrackBuyCapacity={barrackBuyCapacity}
             barrackRepairCooldownMs={barrackRepairCooldownMs}
+            barrackHeroCooldowns={barrackHeroCooldowns}
+            aliveHeroTypeIds={aliveHeroTypeIds}
+            onSummonHero={summonHero}
             position={{ left, top }}
             bounds={{ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }}
             isMobile={isMobile}
@@ -1261,6 +1279,7 @@ export function GameCanvas({
             onBuyBarrackUpgrade={buyBarrackUpgrade}
             onBuyBarrackWarrior={buyBarrackWarrior}
             onRepairBarrack={repairBarrack}
+            onCastCastleSpell={castCastleSpell}
             onClose={() => setUpgradePanelBuildingId(null)}
             gameOver={state.gameOver}
           />

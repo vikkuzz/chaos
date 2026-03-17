@@ -1,4 +1,4 @@
-import { WarriorTypeMap } from "../entities/units/WarriorTypes";
+import { WarriorTypeMap, HeroTypeMap } from "../entities/units/WarriorTypes";
 
 export interface BuildingConfig {
   maxHp: number;
@@ -58,6 +58,7 @@ export interface GameConfig {
   mapHeight: number;
   players: PlayerBaseConfig[];
   warriorTypes: WarriorTypeMap;
+  heroTypes?: HeroTypeMap;
   neutralPoints?: NeutralPointConfig[];
 }
 
@@ -104,6 +105,38 @@ export const defaultGameConfig: GameConfig = {
       attackRange: 45,
       detectionRadius: 90,
       attackIntervalMs: 500,
+    },
+  },
+  heroTypes: {
+    "hero-1": {
+      maxHp: 1000, // 20x базового воина (50)
+      speed: 75,
+      attackDamage: 15,
+      attackRange: 14,
+      detectionRadius: 85,
+      attackIntervalMs: 380,
+      hpRegenPerSec: 2,
+      goldBounty: 25,
+    },
+    "hero-2": {
+      maxHp: 1000,
+      speed: 80,
+      attackDamage: 20,
+      attackRange: 12,
+      detectionRadius: 90,
+      attackIntervalMs: 350,
+      hpRegenPerSec: 1.5,
+      goldBounty: 25,
+    },
+    "hero-3": {
+      maxHp: 1000,
+      speed: 65,
+      attackDamage: 12,
+      attackRange: 15,
+      detectionRadius: 80,
+      attackIntervalMs: 450,
+      hpRegenPerSec: 3,
+      goldBounty: 25,
     },
   },
   players: [

@@ -8,7 +8,9 @@ export type GameAction =
       upgradeId: string;
     }
   | { type: "buyBarrackWarrior"; playerId: string; barrackId: string }
+  | { type: "summonHero"; playerId: string; barrackId: string; heroTypeId: string }
   | { type: "repairBarrack"; playerId: string; barrackId: string }
+  | { type: "castCastleSpell"; playerId: string; castleId: string }
   | {
       type: "setBarrackRoute";
       playerId: string;

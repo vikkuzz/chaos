@@ -17,7 +17,7 @@ export class CombatSystem {
     warriors: Iterable<Warrior>,
     _deltaTimeMs: number,
     onAttack?: (from: Point, to: Point) => void,
-    onWarriorKilled?: (killerOwnerId: string) => void,
+    onWarriorKilled?: (killerOwnerId: string, victim?: Entity) => void,
   ): void {
     const warriorList = Array.from(warriors).filter((w) => w.isAlive);
 
@@ -45,7 +45,7 @@ export class CombatSystem {
       const wasAlive = nearest.isAlive;
       nearest.takeDamage(entity.attackDamage);
       if (wasAlive && !nearest.isAlive) {
-        onWarriorKilled?.(entity.ownerId);
+        onWarriorKilled?.(entity.ownerId, nearest);
       }
       entity.attackCooldownMs = entity.attackIntervalMs;
       onAttack?.(entity.position, nearest.position);

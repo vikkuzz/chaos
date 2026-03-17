@@ -21,6 +21,10 @@ export class Warrior extends Entity {
   /** Таймер до следующей атаки (мс). */
   public attackCooldownMs = 0;
 
+  get isHero(): boolean {
+    return false;
+  }
+
   constructor(props: WarriorProps) {
     super({
       ...props,

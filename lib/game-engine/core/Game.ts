@@ -1,9 +1,10 @@
 import { GameConfig, type NeutralPointConfig } from "../config/defaultConfig";
 import { Entity, EntityId } from "../entities/Entity";
 import { Barrack } from "../entities/base/Barrack";
-import { Castle } from "../entities/base/Castle";
+import { Castle, CASTLE_SPELL } from "../entities/base/Castle";
 import { Tower } from "../entities/base/Tower";
 import { Warrior } from "../entities/units/Warrior";
+import { Hero } from "../entities/units/Hero";
 import { MovementSystem } from "../pathfinding/MovementSystem";
 import { CombatSystem } from "../combat/CombatSystem";
 import { validateGameConfig } from "../config/ConfigValidator";
@@ -31,6 +32,13 @@ export interface AttackEffect {
   timeMs: number;
 }
 
+export interface SpellEffect {
+  position: { x: number; y: number };
+  radius: number;
+  ownerId: string;
+  timeMs: number;
+}
+
 export interface BarrackBuyCapacity {
   current: number;
   max: number;
@@ -48,6 +56,15 @@ export interface EntitySnapshot {
   isAlive: boolean;
   /** Для воинов — базовый тип (basic, archer и т.д.) для визуального отличия. */
   baseWarriorTypeId?: string;
+  /** Для замка — мана и кулдаун заклинания. */
+  mana?: number;
+  maxMana?: number;
+  spellCooldownMs?: number;
+  /** Для героя — тип, уровень, золото за убийство. */
+  isHero?: boolean;
+  heroTypeId?: string;
+  level?: number;
+  goldBounty?: number;
 }
 
 export interface GameStateSnapshot {
@@ -60,7 +77,10 @@ export interface GameStateSnapshot {
   barrackUpgrades: Record<string, string[]>;
   barrackBuyCapacity: Record<string, BarrackBuyCapacity>;
   barrackRepairCooldownMs: Record<string, number>;
+  /** Кулдауны вызова героев: barrackId -> heroTypeId -> оставшиеся мс. */
+  barrackHeroCooldowns: Record<string, Record<string, number>>;
   attackEffects: readonly AttackEffect[];
+  spellEffects: readonly SpellEffect[];
 }
 
 /** Сериализуемая версия снимка (JSON-совместима). */
@@ -88,10 +108,23 @@ export class Game {
   private readonly movementSystem = new MovementSystem();
   private readonly combatSystem = new CombatSystem();
   private readonly attackEffects: AttackEffect[] = [];
+  private readonly spellEffects: SpellEffect[] = [];
   private static readonly ATTACK_EFFECT_DURATION_MS = 180;
+  private static readonly SPELL_EFFECT_DURATION_MS = 800;
   private static readonly GOLD_PER_WARRIOR_KILL = 5;
+  private static readonly GOLD_PER_HERO_KILL = 25;
   static readonly BUY_WARRIOR_COST = 30;
+  static readonly HERO_SUMMON_COST = 100;
+  private static readonly HERO_RESPAWN_COOLDOWN_MS = 180000; // 3 минуты
   private spawningEnabled = false;
+
+  /** Кулдауны героев по баракам: barrackId -> Map<heroTypeId, cooldownMs>. */
+  private readonly barrackHeroCooldowns = new Map<string, Map<string, number>>();
+  /** Сохранённый прогресс героев после смерти: "playerId-heroTypeId" -> { level, xp }. */
+  private readonly heroProgress = new Map<string, { level: number; xp: number }>();
+
+  private static readonly HERO_SUMMON_CASTLE_LEVEL = 2;
+  private static readonly HERO_SUMMON_BARRACK_LEVEL = 2;
 
   private static readonly GOLD_PER_SECOND_CASTLE = 3;
   private static readonly GOLD_PER_SECOND_BUILDING = 1;
@@ -191,6 +224,48 @@ export class Game {
     this.addEntity(warrior);
   }
 
+  private setHeroCooldown(barrackId: string, heroTypeId: string): void {
+    let map = this.barrackHeroCooldowns.get(barrackId);
+    if (!map) {
+      map = new Map();
+      this.barrackHeroCooldowns.set(barrackId, map);
+    }
+    map.set(heroTypeId, Game.HERO_RESPAWN_COOLDOWN_MS);
+  }
+
+  private getHeroCooldown(barrackId: string, heroTypeId: string): number {
+    return this.barrackHeroCooldowns.get(barrackId)?.get(heroTypeId) ?? 0;
+  }
+
+  private getMaxUpgradeLevel(
+    ownedIds: string[],
+    defs: { id: string; prerequisiteId?: string }[],
+  ): number {
+    let maxLevel = 0;
+    for (const id of ownedIds) {
+      const def = defs.find((d) => d.id === id);
+      if (!def) continue;
+      let level = 0;
+      let current: typeof def | undefined = def;
+      while (current?.prerequisiteId) {
+        level += 1;
+        current = defs.find((d) => d.id === current!.prerequisiteId);
+      }
+      maxLevel = Math.max(maxLevel, level);
+    }
+    return maxLevel;
+  }
+
+  /** Есть ли живой герой данного типа у игрока. */
+  private isHeroTypeAlive(playerId: string, heroTypeId: string): boolean {
+    for (const warrior of this.warriors.values()) {
+      if (warrior.isHero && warrior instanceof Hero && warrior.ownerId === playerId && warrior.heroTypeId === heroTypeId && warrior.isAlive) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /** Проверяет, есть ли у игрока хотя бы одно живое здание (замок, барак, башня). */
   private playerHasAnyBuilding(playerId: string): boolean {
     for (const entity of this.entities.values()) {
@@ -230,10 +305,40 @@ export class Game {
       entity.update(deltaTimeMs);
     }
 
+    // Обновление кулдаунов героев по баракам.
+    for (const barrackMap of this.barrackHeroCooldowns.values()) {
+      for (const [heroTypeId, remaining] of barrackMap) {
+        const newRemaining = Math.max(0, remaining - deltaTimeMs);
+        barrackMap.set(heroTypeId, newRemaining);
+      }
+    }
+
     const onWarriorKilled = this.spawningEnabled
-      ? (killerOwnerId: string) => {
+      ? (killerOwnerId: string, victim?: Entity) => {
           const ps = this.playerStates.get(killerOwnerId);
-          if (ps) ps.gold += Game.GOLD_PER_WARRIOR_KILL;
+          if (!ps) return;
+          if (victim instanceof Hero) {
+            ps.gold += victim.goldBounty;
+            this.heroProgress.set(`${victim.ownerId}-${victim.heroTypeId}`, {
+              level: victim.level,
+              xp: victim.xp,
+            });
+            this.setHeroCooldown(victim.sourceBarrackId, victim.heroTypeId);
+          } else {
+            ps.gold += Game.GOLD_PER_WARRIOR_KILL;
+          }
+        }
+      : undefined;
+
+    const XP_PER_WARRIOR_KILL = 10;
+    const XP_PER_HERO_KILL = 50;
+    const onHeroKill = this.spawningEnabled
+      ? (hero: Hero, victim: Entity) => {
+          if (victim instanceof Hero) {
+            hero.gainXp(XP_PER_HERO_KILL);
+          } else {
+            hero.gainXp(XP_PER_WARRIOR_KILL);
+          }
         }
       : undefined;
 
@@ -246,6 +351,7 @@ export class Game {
       (from, to) => {
         this.attackEffects.push({ from: { x: from.x, y: from.y }, to: { x: to.x, y: to.y }, timeMs: this.timeMs });
       },
+      onHeroKill,
     );
 
     // Захват нейтральных точек: воин в радиусе = последний владелец
@@ -273,7 +379,7 @@ export class Game {
       (from, to) => {
         this.attackEffects.push({ from: { x: from.x, y: from.y }, to: { x: to.x, y: to.y }, timeMs: this.timeMs });
       },
-      onWarriorKilled,
+      (killerId, victim) => onWarriorKilled?.(killerId, victim),
     );
 
     // Удаляем мёртвые сущности. Бараки не удаляем — они продолжают спавнить в 2 раза медленнее.
@@ -333,17 +439,31 @@ export class Game {
     }
     const barrackBuyCapacity: Record<string, BarrackBuyCapacity> = {};
     const barrackRepairCooldownMs: Record<string, number> = {};
+    const barrackHeroCooldowns: Record<string, Record<string, number>> = {};
     for (const [id, barrack] of this.barracks) {
       if (barrack.isAlive) {
         barrackBuyCapacity[id] = barrack.getBuyCapacity();
         barrackRepairCooldownMs[id] = barrack.getRepairCooldownMs();
       }
     }
-    // Оставляем только недавние эффекты атаки.
+    for (const [barrackId, heroMap] of this.barrackHeroCooldowns) {
+      const entries: Record<string, number> = {};
+      for (const [heroTypeId, cooldownMs] of heroMap) {
+        if (cooldownMs > 0) entries[heroTypeId] = cooldownMs;
+      }
+      if (Object.keys(entries).length > 0) {
+        barrackHeroCooldowns[barrackId] = entries;
+      }
+    }
+    // Оставляем только недавние эффекты атаки и заклинаний.
     const cutoff = this.timeMs - Game.ATTACK_EFFECT_DURATION_MS;
     const recentEffects = this.attackEffects.filter((e) => e.timeMs > cutoff);
     this.attackEffects.length = 0;
     this.attackEffects.push(...recentEffects);
+    const spellCutoff = this.timeMs - Game.SPELL_EFFECT_DURATION_MS;
+    const recentSpells = this.spellEffects.filter((e) => e.timeMs > spellCutoff);
+    this.spellEffects.length = 0;
+    this.spellEffects.push(...recentSpells);
 
     const entities: EntitySnapshot[] = Array.from(this.entities.values()).map((e) => {
       const base: EntitySnapshot = {
@@ -359,6 +479,17 @@ export class Game {
       if (e instanceof Warrior) {
         base.baseWarriorTypeId = e.baseWarriorTypeId;
       }
+      if (e instanceof Hero) {
+        base.isHero = true;
+        base.heroTypeId = e.heroTypeId;
+        base.level = e.level;
+        base.goldBounty = e.goldBounty;
+      }
+      if (e instanceof Castle) {
+        base.mana = e.mana;
+        base.maxMana = CASTLE_SPELL.MANA_MAX;
+        base.spellCooldownMs = e.spellCooldownMs;
+      }
       return base;
     });
 
@@ -372,7 +503,9 @@ export class Game {
       barrackUpgrades,
       barrackBuyCapacity,
       barrackRepairCooldownMs,
+      barrackHeroCooldowns,
       attackEffects: [...this.attackEffects],
+      spellEffects: [...this.spellEffects],
     };
   }
 
@@ -449,11 +582,97 @@ export class Game {
     return true;
   }
 
+  /**
+   * Вызвать героя из барака.
+   * Герой типа X может быть только один в живых. При смерти — долгий кулдаун в бараке-источнике.
+   */
+  summonHero(playerId: string, barrackId: string, heroTypeId: string): boolean {
+    const barrack = this.barracks.get(barrackId);
+    const ps = this.playerStates.get(playerId);
+    if (!barrack || !ps || barrack.ownerId !== playerId || !barrack.isAlive) return false;
+
+    const heroTypes = this.config.heroTypes ?? {};
+    const baseStats = heroTypes[heroTypeId];
+    if (!baseStats) return false;
+
+    const castleLevel = this.getMaxUpgradeLevel(
+      ps.buildingUpgradeIds ?? [],
+      BUILDING_UPGRADE_DEFINITIONS,
+    );
+    const barrackLevel = this.getMaxUpgradeLevel(
+      this.barrackUpgrades.get(barrackId) ?? [],
+      BARACK_UPGRADE_DEFINITIONS,
+    );
+    if (castleLevel < Game.HERO_SUMMON_CASTLE_LEVEL) return false;
+    if (barrackLevel < Game.HERO_SUMMON_BARRACK_LEVEL) return false;
+
+    if (ps.gold < Game.HERO_SUMMON_COST) return false;
+    if (this.isHeroTypeAlive(playerId, heroTypeId)) return false;
+    if (this.getHeroCooldown(barrackId, heroTypeId) > 0) return false;
+
+    ps.gold -= Game.HERO_SUMMON_COST;
+
+    const savedProgress = this.heroProgress.get(`${playerId}-${heroTypeId}`);
+    const position = { x: barrack.position.x, y: barrack.position.y };
+    const hero = new Hero({
+      id: `${barrackId}-hero-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      ownerId: playerId,
+      position,
+      radius: 6,
+      stats: { ...baseStats },
+      heroTypeId,
+      sourceBarrackId: barrackId,
+      routeManager: barrack.routeManager,
+      initialLevel: savedProgress?.level,
+      initialXp: savedProgress?.xp,
+    });
+
+    this.registerWarrior(hero);
+    return true;
+  }
+
   /** Ремонт барака на 20% HP. Бесплатно, откат 2 мин. */
   repairBarrack(playerId: string, barrackId: string): boolean {
     const barrack = this.barracks.get(barrackId);
     if (!barrack || barrack.ownerId !== playerId || !barrack.isAlive) return false;
     return barrack.repair();
+  }
+
+  /**
+   * Заклинание замка: убивает вражеских воинов в радиусе базы.
+   * Тратит ману, имеет кулдаун.
+   */
+  castCastleSpell(playerId: string, castleId: string): boolean {
+    const entity = this.entities.get(castleId);
+    if (!entity || entity.kind !== "castle") return false;
+    const castle = entity as Castle;
+    if (castle.ownerId !== playerId || !castle.isAlive) return false;
+    if (castle.mana < CASTLE_SPELL.SPELL_COST) return false;
+    if (castle.spellCooldownMs > 0) return false;
+
+    castle.mana -= CASTLE_SPELL.SPELL_COST;
+    castle.spellCooldownMs = CASTLE_SPELL.SPELL_COOLDOWN_MS;
+
+    this.spellEffects.push({
+      position: { x: castle.position.x, y: castle.position.y },
+      radius: CASTLE_SPELL.SPELL_RADIUS,
+      ownerId: playerId,
+      timeMs: this.timeMs,
+    });
+
+    const cx = castle.position.x;
+    const cy = castle.position.y;
+    const r2 = CASTLE_SPELL.SPELL_RADIUS * CASTLE_SPELL.SPELL_RADIUS;
+
+    for (const warrior of this.warriors.values()) {
+      if (!warrior.isAlive || warrior.ownerId === playerId) continue;
+      const dx = warrior.position.x - cx;
+      const dy = warrior.position.y - cy;
+      if (dx * dx + dy * dy <= r2) {
+        warrior.takeDamage(warrior.maxHp);
+      }
+    }
+    return true;
   }
 
   private applyBuildingUpgradesToExisting(playerId: string): void {
