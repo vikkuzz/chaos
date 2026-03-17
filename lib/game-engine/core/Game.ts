@@ -46,6 +46,8 @@ export interface EntitySnapshot {
   hp: number;
   maxHp: number;
   isAlive: boolean;
+  /** Для воинов — базовый тип (basic, archer и т.д.) для визуального отличия. */
+  baseWarriorTypeId?: string;
 }
 
 export interface GameStateSnapshot {
@@ -125,12 +127,14 @@ export class Game {
       this.addEntity(castle);
 
       for (const barrackConfig of player.barracks) {
-        const warriorStats = config.warriorTypes[barrackConfig.warriorTypeId];
+        const warriorTypeIds =
+          barrackConfig.warriorTypeIds ??
+          (barrackConfig.warriorTypeId ? [barrackConfig.warriorTypeId] : ["basic"]);
 
-        if (!warriorStats) {
-          throw new Error(
-            `GameConfig: warriorTypeId "${barrackConfig.warriorTypeId}" не определён.`,
-          );
+        for (const tid of warriorTypeIds) {
+          if (!config.warriorTypes[tid]) {
+            throw new Error(`GameConfig: warriorTypeId "${tid}" не определён.`);
+          }
         }
 
         const barrack = new Barrack({
@@ -140,9 +144,9 @@ export class Game {
           maxHp: barrackConfig.maxHp,
           radius: barrackConfig.radius,
           spawnIntervalMs: barrackConfig.spawnIntervalMs,
-          warriorTypeId: barrackConfig.warriorTypeId,
-          warriorStats,
-          resolveStats: (ownerId, base) => this.getEffectiveWarriorStats(ownerId, base),
+          warriorTypeIds,
+          resolveStatsForType: (ownerId, typeId) =>
+            this.getEffectiveWarriorStats(ownerId, config.warriorTypes[typeId]),
           onSpawnWarrior: (warrior) => this.registerWarrior(warrior),
           canSpawn: () => this.spawningEnabled && this.playerHasAnyBuilding(player.id),
         });
@@ -234,7 +238,15 @@ export class Game {
       : undefined;
 
     // Система движения и атаки воинов.
-    this.movementSystem.update(this.warriors.values(), this.entities, deltaTimeMs, onWarriorKilled);
+    this.movementSystem.update(
+      this.warriors.values(),
+      this.entities,
+      deltaTimeMs,
+      onWarriorKilled,
+      (from, to) => {
+        this.attackEffects.push({ from: { x: from.x, y: from.y }, to: { x: to.x, y: to.y }, timeMs: this.timeMs });
+      },
+    );
 
     // Захват нейтральных точек: воин в радиусе = последний владелец
     if (this.spawningEnabled) {
@@ -333,16 +345,22 @@ export class Game {
     this.attackEffects.length = 0;
     this.attackEffects.push(...recentEffects);
 
-    const entities: EntitySnapshot[] = Array.from(this.entities.values()).map((e) => ({
-      id: e.id,
-      ownerId: e.ownerId,
-      kind: e.kind,
-      position: { x: e.position.x, y: e.position.y },
-      radius: e.radius,
-      hp: e.hp,
-      maxHp: e.maxHp,
-      isAlive: e.isAlive,
-    }));
+    const entities: EntitySnapshot[] = Array.from(this.entities.values()).map((e) => {
+      const base: EntitySnapshot = {
+        id: e.id,
+        ownerId: e.ownerId,
+        kind: e.kind,
+        position: { x: e.position.x, y: e.position.y },
+        radius: e.radius,
+        hp: e.hp,
+        maxHp: e.maxHp,
+        isAlive: e.isAlive,
+      };
+      if (e instanceof Warrior) {
+        base.baseWarriorTypeId = e.baseWarriorTypeId;
+      }
+      return base;
+    });
 
     return {
       timeMs: this.timeMs,
@@ -561,14 +579,15 @@ export class Game {
   addBarrack(
     playerId: string,
     position: { x: number; y: number },
-    options?: { id?: string; warriorTypeId?: string; spawnIntervalMs?: number },
+    options?: { id?: string; warriorTypeIds?: string[]; spawnIntervalMs?: number },
   ): string | null {
     const player = this.config.players.find((p) => p.id === playerId);
     if (!player) return null;
 
-    const warriorTypeId = options?.warriorTypeId ?? "basic";
-    const warriorStats = this.config.warriorTypes[warriorTypeId];
-    if (!warriorStats) return null;
+    const warriorTypeIds = options?.warriorTypeIds ?? ["basic", "archer"];
+    for (const tid of warriorTypeIds) {
+      if (!this.config.warriorTypes[tid]) return null;
+    }
 
     const id =
       options?.id ?? `barrack-${playerId}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
@@ -582,9 +601,9 @@ export class Game {
       maxHp: 200,
       radius: 15,
       spawnIntervalMs: options?.spawnIntervalMs ?? 2000,
-      warriorTypeId,
-      warriorStats,
-      resolveStats: (ownerId, base) => this.getEffectiveWarriorStats(ownerId, base),
+      warriorTypeIds,
+      resolveStatsForType: (ownerId, typeId) =>
+        this.getEffectiveWarriorStats(ownerId, this.config.warriorTypes[typeId]),
       onSpawnWarrior: (warrior) => this.registerWarrior(warrior),
       canSpawn: () => this.spawningEnabled && this.playerHasAnyBuilding(playerId),
     });

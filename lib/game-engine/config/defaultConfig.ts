@@ -8,7 +8,10 @@ export interface BuildingConfig {
 export interface BarrackConfig extends BuildingConfig {
   id: string;
   spawnIntervalMs: number;
-  warriorTypeId: string;
+  /** Типы воинов за один цикл спавна (напр. ["basic", "archer"]). Если не задан — ["basic"]. */
+  warriorTypeIds?: string[];
+  /** @deprecated Используйте warriorTypeIds. Один тип — для обратной совместимости. */
+  warriorTypeId?: string;
   position: { x: number; y: number };
   /**
    * Дефолтный маршрут для воинов барака.
@@ -63,12 +66,17 @@ export interface GameConfig {
  */
 const MAP_SIZE = 998;
 
-const barrackDefaults = {
+const barrackDefaults: {
+  maxHp: number;
+  radius: number;
+  spawnIntervalMs: number;
+  warriorTypeIds: string[];
+} = {
   maxHp: 200,
   radius: 15,
   spawnIntervalMs: 2000,
-  warriorTypeId: "basic",
-} as const;
+  warriorTypeIds: ["basic", "archer"],
+};
 
 const towerDefaults = {
   maxHp: 200,
@@ -88,6 +96,14 @@ export const defaultGameConfig: GameConfig = {
       attackRange: 12,
       detectionRadius: 80,
       attackIntervalMs: 400,
+    },
+    archer: {
+      maxHp: 35,
+      speed: 70,
+      attackDamage: 4,
+      attackRange: 45,
+      detectionRadius: 90,
+      attackIntervalMs: 500,
     },
   },
   players: [

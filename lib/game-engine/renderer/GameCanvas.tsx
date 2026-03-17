@@ -10,7 +10,8 @@ import { BuildingUpgradePanel } from "./BuildingUpgradePanel";
 
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2;
-const PAN_THRESHOLD = 8;
+const PAN_THRESHOLD_DESKTOP = 8;
+const PAN_THRESHOLD_MOBILE = 24;
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -123,6 +124,15 @@ export function GameCanvas({
     null,
   );
   const [upgradePanelBuildingId, setUpgradePanelBuildingId] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 640px), (pointer: coarse)");
+    const check = () => setIsMobile(mq.matches);
+    check();
+    mq.addEventListener("change", check);
+    return () => mq.removeEventListener("change", check);
+  }, []);
   const [buildingPositions, setBuildingPositions] = useState<
     Record<string, { x: number; y: number }>
   >({});
@@ -632,7 +642,12 @@ export function GameCanvas({
       if (last) {
         const dx = clientX - last.clientX;
         const dy = clientY - last.clientY;
-        if (!isPanningRef.current && Math.hypot(dx, dy) > PAN_THRESHOLD) {
+        const panThreshold =
+          typeof window !== "undefined" &&
+          (window.matchMedia("(max-width: 640px)").matches || window.matchMedia("(pointer: coarse)").matches)
+            ? PAN_THRESHOLD_MOBILE
+            : PAN_THRESHOLD_DESKTOP;
+        if (!isPanningRef.current && Math.hypot(dx, dy) > panThreshold) {
           isPanningRef.current = true;
         }
         if (isPanningRef.current) {
@@ -1194,7 +1209,7 @@ export function GameCanvas({
           }}
           onTouchCancel={() => handlePointerUp(0, 0, true)}
           onContextMenu={handleContextMenu}
-          className={`absolute inset-0 w-full h-full rounded-lg ${
+          className={`absolute inset-0 w-full h-full rounded-lg touch-none ${
             effectiveMode === "test"
               ? "cursor-default"
               : effectiveMode === "buildings"
@@ -1241,6 +1256,7 @@ export function GameCanvas({
             barrackRepairCooldownMs={barrackRepairCooldownMs}
             position={{ left, top }}
             bounds={{ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }}
+            isMobile={isMobile}
             onBuyUpgrade={buyUpgrade}
             onBuyBarrackUpgrade={buyBarrackUpgrade}
             onBuyBarrackWarrior={buyBarrackWarrior}

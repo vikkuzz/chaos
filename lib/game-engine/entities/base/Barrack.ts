@@ -5,10 +5,10 @@ import { WarriorStats, WarriorTypeId } from "../units/WarriorTypes";
 
 export interface BarrackProps extends Omit<EntityProps, "kind"> {
   spawnIntervalMs: number;
-  warriorTypeId: WarriorTypeId;
-  warriorStats: WarriorStats;
-  /** Применяет апгрейды игрока к базовым статам. Если не задан — используются warriorStats без изменений. */
-  resolveStats?: (ownerId: string, baseStats: WarriorStats) => WarriorStats;
+  /** Типы воинов за цикл спавна. При spawnCount > length цикл повторяется (0,1,0,1...). */
+  warriorTypeIds: readonly WarriorTypeId[];
+  /** Применяет апгрейды игрока к базовым статам типа. */
+  resolveStatsForType: (ownerId: string, typeId: WarriorTypeId) => WarriorStats;
   routeManager?: RouteManager;
   onSpawnWarrior: (warrior: Warrior) => void;
   /** Если задан, спавн происходит только когда эта функция возвращает true (у игрока есть хотя бы одно здание). */
@@ -23,11 +23,10 @@ export class Barrack extends Entity {
   public spawnCount: number;
   public readonly baseMaxHp: number;
   public readonly baseSpawnIntervalMs: number;
-  public readonly warriorTypeId: WarriorTypeId;
-  public readonly warriorStats: WarriorStats;
+  public readonly warriorTypeIds: readonly WarriorTypeId[];
   public readonly routeManager: RouteManager;
 
-  private readonly resolveStats?: (ownerId: string, baseStats: WarriorStats) => WarriorStats;
+  private readonly resolveStatsForType: (ownerId: string, typeId: WarriorTypeId) => WarriorStats;
   private readonly onSpawnWarrior: (warrior: Warrior) => void;
   private readonly canSpawn: () => boolean;
   private spawnTimerMs = 0;
@@ -50,12 +49,11 @@ export class Barrack extends Entity {
     });
 
     this.spawnIntervalMs = props.spawnIntervalMs;
-    this.spawnCount = 1;
+    this.spawnCount = props.warriorTypeIds.length;
     this.baseMaxHp = props.maxHp;
     this.baseSpawnIntervalMs = props.spawnIntervalMs;
-    this.warriorTypeId = props.warriorTypeId;
-    this.warriorStats = props.warriorStats;
-    this.resolveStats = props.resolveStats;
+    this.warriorTypeIds = props.warriorTypeIds;
+    this.resolveStatsForType = props.resolveStatsForType;
     this.routeManager = props.routeManager ?? new RouteManager();
     this.onSpawnWarrior = props.onSpawnWarrior;
     this.canSpawn = props.canSpawn ?? (() => true);
@@ -118,10 +116,8 @@ export class Barrack extends Entity {
    * @param spawnIndex — индекс в текущем цикле (0..spawnCount-1), для смещения по кругу.
    */
   private spawnUnit(spawnIndex: number): void {
-    const stats = this.resolveStats
-      ? this.resolveStats(this.ownerId, this.warriorStats)
-      : this.warriorStats;
-
+    const typeId = this.warriorTypeIds[spawnIndex % this.warriorTypeIds.length];
+    const stats = this.resolveStatsForType(this.ownerId, typeId);
     const position = this.getSpawnPosition(spawnIndex);
 
     const warrior = new Warrior({
@@ -130,7 +126,7 @@ export class Barrack extends Entity {
       position,
       radius: 4,
       stats,
-      baseWarriorTypeId: this.warriorTypeId,
+      baseWarriorTypeId: typeId,
       routeManager: this.routeManager,
     });
 
@@ -165,7 +161,7 @@ export class Barrack extends Entity {
     const totalHp = Math.round(this.baseMaxHp * globalHpMult * barrackHpMult);
     this.applyMaxHpChange(totalHp);
     this.spawnIntervalMs = Math.round(this.baseSpawnIntervalMs * spawnSpeedMult);
-    this.spawnCount = Math.max(1, spawnCount);
+    this.spawnCount = Math.max(this.warriorTypeIds.length, Math.max(1, spawnCount));
     this.buyCapacityMax = this.spawnCount;
     if (this.buyCapacityCurrent > this.buyCapacityMax) {
       this.buyCapacityCurrent = this.buyCapacityMax;
@@ -184,9 +180,14 @@ export class Barrack extends Entity {
     return true;
   }
 
-  /** Спавнит одного воина (для докупки за золото). */
+  /** Индекс следующего типа при докупке (циклически по warriorTypeIds). */
+  private nextBuySpawnIndex = 0;
+
+  /** Спавнит одного воина (для докупки за золото). Типы чередуются. */
   spawnBuyWarrior(): void {
-    this.spawnUnit(0);
+    const idx = this.nextBuySpawnIndex % this.warriorTypeIds.length;
+    this.nextBuySpawnIndex = (idx + 1) % this.warriorTypeIds.length;
+    this.spawnUnit(idx);
   }
 
   setRouteFromConfig(configs: { x: number; y: number }[]): void {

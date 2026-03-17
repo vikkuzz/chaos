@@ -159,9 +159,26 @@ export class CanvasRenderer implements Renderer {
         ctx.fillStyle = "#666666";
     }
 
-    ctx.beginPath();
-    ctx.arc(entity.position.x, entity.position.y, entity.radius, 0, Math.PI * 2);
-    ctx.fill();
+    const { x, y } = entity.position;
+    const r = entity.radius;
+
+    if (entity.kind === "warrior" && entity.baseWarriorTypeId === "archer") {
+      // Лучник — ромб (стрелок)
+      ctx.beginPath();
+      ctx.moveTo(x, y - r);
+      ctx.lineTo(x + r, y);
+      ctx.lineTo(x, y + r);
+      ctx.lineTo(x - r, y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.4)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     // Полоска HP над сущностью.
     if (entity.maxHp > 0) {

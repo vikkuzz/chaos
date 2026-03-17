@@ -15,10 +15,11 @@ export function validateGameConfig(config: GameConfig): void {
   // Базовая проверка типов воинов.
   for (const player of config.players) {
     for (const barrack of player.barracks) {
-      if (!config.warriorTypes[barrack.warriorTypeId]) {
-        throw new Error(
-          `GameConfig: warriorTypeId "${barrack.warriorTypeId}" не определён в warriorTypes.`,
-        );
+      const typeIds = barrack.warriorTypeIds ?? (barrack.warriorTypeId ? [barrack.warriorTypeId] : ["basic"]);
+      for (const tid of typeIds) {
+        if (!config.warriorTypes[tid]) {
+          throw new Error(`GameConfig: warriorTypeId "${tid}" не определён в warriorTypes.`);
+        }
       }
     }
   }

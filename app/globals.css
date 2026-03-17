@@ -10,3 +10,14 @@ body {
 body {
   @apply bg-slate-900 text-slate-100;
 }
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0.9;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

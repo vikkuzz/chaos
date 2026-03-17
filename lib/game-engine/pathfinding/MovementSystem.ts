@@ -1,6 +1,6 @@
 import { Entity } from "../entities/Entity";
 import { Warrior } from "../entities/units/Warrior";
-import { Point } from "../utils/Point";
+import { Point, type PointLike } from "../utils/Point";
 
 /**
  * Движение воинов по маршруту + логика атаки.
@@ -12,6 +12,7 @@ export class MovementSystem {
     allEntities: Map<string, Entity>,
     deltaTimeMs: number,
     onWarriorKilled?: (killerOwnerId: string) => void,
+    onWarriorAttack?: (from: PointLike, to: PointLike) => void,
   ): void {
     const deltaSeconds = deltaTimeMs / 1000;
     const entitiesList = Array.from(allEntities.values());
@@ -51,6 +52,7 @@ export class MovementSystem {
         const distToEnemy = warrior.position.distanceTo(nearestEnemy.position);
 
         if (distToEnemy <= attackRange && warrior.attackCooldownMs <= 0) {
+          onWarriorAttack?.(warrior.position, nearestEnemy.position);
           const wasWarrior = nearestEnemy.kind === "warrior";
           const wasAlive = nearestEnemy.isAlive;
           nearestEnemy.takeDamage(warrior.stats.attackDamage);

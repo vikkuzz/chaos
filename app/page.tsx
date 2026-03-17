@@ -15,12 +15,13 @@ export default function HomePage() {
           >
             Локальная игра
           </Link>
-          <Link
-            href="/game?mode=multiplayer"
-            className="inline-flex items-center justify-center px-4 py-2 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
+          <span
+            className="inline-flex items-center justify-center px-4 py-2 rounded-md bg-slate-500 text-slate-400 font-medium cursor-not-allowed"
+            aria-disabled="true"
+            title="Временно недоступно"
           >
             Мультиплеер
-          </Link>
+          </span>
         </div>
       </div>
     </main>
