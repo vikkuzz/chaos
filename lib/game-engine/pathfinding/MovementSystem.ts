@@ -3,9 +3,20 @@ import { Warrior } from "../entities/units/Warrior";
 import { Hero } from "../entities/units/Hero";
 import { Point, type PointLike } from "../utils/Point";
 
+/** Радиус, в котором юниты переключаются на защиту героя. */
+const DEFEND_HERO_RADIUS = 120;
+
+export interface HeroUnderAttack {
+  attacker: Warrior;
+  heroOwnerId: string;
+  heroPosition: PointLike;
+  timeMs: number;
+}
+
 /**
  * Движение воинов по маршруту + логика атаки.
  * Воины обнаруживают врагов в радиусе detectionRadius, движутся к ним и атакуют вплотную.
+ * При атаке дружественного героя — ближайшие юниты переагриваются на атакующего.
  */
 export class MovementSystem {
   update(
@@ -15,6 +26,8 @@ export class MovementSystem {
     onWarriorKilled?: (killerOwnerId: string, victim?: Entity) => void,
     onWarriorAttack?: (from: PointLike, to: PointLike) => void,
     onHeroKill?: (hero: Hero, victim: Entity) => void,
+    heroUnderAttackRef?: { current: HeroUnderAttack | null },
+    currentTimeMs?: number,
   ): void {
     const deltaSeconds = deltaTimeMs / 1000;
     const entitiesList = Array.from(allEntities.values());
@@ -41,7 +54,8 @@ export class MovementSystem {
         return dist <= detectionRadius;
       });
 
-      const nearestEnemy = enemiesInDetection.length > 0
+      // Переагривание: если атакуют нашего героя — ближайшие юниты целятся в атакующего
+      let nearestEnemy: Entity | null = enemiesInDetection.length > 0
         ? enemiesInDetection.reduce((a, b) =>
             warrior.position.distanceTo(a.position) <
             warrior.position.distanceTo(b.position)
@@ -49,6 +63,23 @@ export class MovementSystem {
               : b,
           )
         : null;
+
+      const defendTarget = heroUnderAttackRef?.current;
+      if (defendTarget && defendTarget.attacker.isAlive) {
+        const heroOwnerId = defendTarget.heroOwnerId;
+        const attacker = defendTarget.attacker;
+        const distToHero = warrior.position.distanceTo(defendTarget.heroPosition);
+        const distToAttacker = warrior.position.distanceTo(attacker.position);
+        if (
+          warrior.ownerId === heroOwnerId &&
+          distToHero <= DEFEND_HERO_RADIUS &&
+          distToAttacker <= detectionRadius &&
+          attacker.ownerId !== warrior.ownerId &&
+          enemies.some((e) => e.id === attacker.id)
+        ) {
+          nearestEnemy = attacker;
+        }
+      }
 
       if (nearestEnemy) {
         const distToEnemy = warrior.position.distanceTo(nearestEnemy.position);
@@ -63,6 +94,14 @@ export class MovementSystem {
             if (warrior.isHero && warrior instanceof Hero) {
               onHeroKill?.(warrior, nearestEnemy);
             }
+          }
+          if (nearestEnemy instanceof Hero && nearestEnemy.ownerId !== warrior.ownerId) {
+            heroUnderAttackRef && currentTimeMs !== undefined && (heroUnderAttackRef.current = {
+              attacker: warrior,
+              heroOwnerId: nearestEnemy.ownerId,
+              heroPosition: nearestEnemy.position,
+              timeMs: currentTimeMs,
+            });
           }
           warrior.attackCooldownMs = attackIntervalMs;
           continue;

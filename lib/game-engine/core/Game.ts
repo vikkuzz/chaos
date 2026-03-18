@@ -5,7 +5,7 @@ import { Castle, CASTLE_SPELL, CASTLE_EXPLOSION_RADIUS } from "../entities/base/
 import { Tower } from "../entities/base/Tower";
 import { Warrior } from "../entities/units/Warrior";
 import { Hero } from "../entities/units/Hero";
-import { MovementSystem } from "../pathfinding/MovementSystem";
+import { MovementSystem, type HeroUnderAttack } from "../pathfinding/MovementSystem";
 import { CombatSystem } from "../combat/CombatSystem";
 import { validateGameConfig } from "../config/ConfigValidator";
 import {
@@ -116,7 +116,11 @@ export class Game {
   static readonly BUY_WARRIOR_COST = 30;
   static readonly HERO_SUMMON_COST = 100;
   private static readonly HERO_RESPAWN_COOLDOWN_MS = 180000; // 3 минуты
+  private static readonly HERO_UNDER_ATTACK_DURATION_MS = 2000;
   private spawningEnabled = false;
+
+  /** Атакуют нашего героя — юниты переагриваются на атакующего. Очищается по таймауту. */
+  private heroUnderAttackRef = { current: null as HeroUnderAttack | null };
 
   /** Кулдауны героев по баракам: barrackId -> Map<heroTypeId, cooldownMs>. */
   private readonly barrackHeroCooldowns = new Map<string, Map<string, number>>();
@@ -340,6 +344,14 @@ export class Game {
         }
       : undefined;
 
+    // Сброс heroUnderAttack по таймауту или если атакующий мёртв
+    const ref = this.heroUnderAttackRef.current;
+    if (ref) {
+      if (!ref.attacker.isAlive || this.timeMs - ref.timeMs > Game.HERO_UNDER_ATTACK_DURATION_MS) {
+        this.heroUnderAttackRef.current = null;
+      }
+    }
+
     // Система движения и атаки воинов.
     this.movementSystem.update(
       this.warriors.values(),
@@ -350,6 +362,8 @@ export class Game {
         this.attackEffects.push({ from: { x: from.x, y: from.y }, to: { x: to.x, y: to.y }, timeMs: this.timeMs });
       },
       onHeroKill,
+      this.heroUnderAttackRef,
+      this.timeMs,
     );
 
     // Захват нейтральных точек: воин в радиусе = последний владелец
