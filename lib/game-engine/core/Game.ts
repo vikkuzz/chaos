@@ -806,7 +806,7 @@ export class Game {
       position: { ...position },
       maxHp: 278,
       radius: 15,
-      spawnIntervalMs: options?.spawnIntervalMs ?? 20000,
+      spawnIntervalMs: options?.spawnIntervalMs ?? 15000,
       warriorTypeIds,
       resolveStatsForType: (ownerId, typeId) =>
         this.getEffectiveWarriorStats(ownerId, this.config.warriorTypes[typeId]),

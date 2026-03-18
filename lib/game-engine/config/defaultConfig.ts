@@ -75,7 +75,7 @@ const barrackDefaults: {
 } = {
   maxHp: 278,
   radius: 15,
-  spawnIntervalMs: 20000,
+  spawnIntervalMs: 15000,
   warriorTypeIds: ["basic", "archer"],
 };
 
