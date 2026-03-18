@@ -52,7 +52,7 @@ export interface UseGameEngineResult {
   addNeutralPoint: (position: { x: number; y: number }, options?: Partial<StoredNeutralPoint>) => string | null;
   removeNeutralPoint: (id: string) => boolean;
   buyCastleUpgrade: (playerId: string, trackId: import("../core/Game").CastleUpgradeTrack) => boolean;
-  buyBarrackUpgrade: (playerId: string, barrackId: string, upgradeId: string) => boolean;
+  buyBarrackUpgrade: (playerId: string, barrackId: string) => boolean;
   buyBarrackWarrior: (playerId: string, barrackId: string) => boolean;
   repairBarrack: (playerId: string, barrackId: string) => boolean;
   castCastleSpell: (playerId: string, castleId: string, spellIndex?: 0 | 1) => boolean;
@@ -371,7 +371,7 @@ export function useGameEngine(
   );
 
   const buyBarrackUpgrade = useCallback(
-    (targetPlayerId: string, barrackId: string, upgradeId: string): boolean => {
+    (targetPlayerId: string, barrackId: string): boolean => {
       if (mode === "multiplayer") {
         const pid = playerIdRef.current;
         if (pid === targetPlayerId && socketRef.current) {
@@ -379,13 +379,12 @@ export function useGameEngine(
             type: "buyBarrackUpgrade",
             playerId: targetPlayerId,
             barrackId,
-            upgradeId,
           });
           return true;
         }
         return false;
       }
-      return gameRef.current?.buyBarrackUpgrade(targetPlayerId, barrackId, upgradeId) ?? false;
+      return gameRef.current?.buyBarrackUpgrade(targetPlayerId, barrackId) ?? false;
     },
     [mode],
   );

@@ -5,14 +5,14 @@ import { Game, type PlayerState, type BarrackBuyCapacity, type EntitySnapshot, t
 import { CASTLE_SPELL, CASTLE_SPELL_1, CASTLE_SPELL_2 } from "../entities/base/Castle";
 import type { GameConfig } from "../config/defaultConfig";
 import {
-  BARACK_UPGRADE_DEFINITIONS,
+  getBarrackUpgradeCost,
   getCastleUpgradeCost,
   getTrackUpgradeCost,
   getMaxTrackLevel,
   getMaxMagicLevel,
+  BARRACK_MAX_LEVEL,
   type UpgradeDefinition,
   type BuildingUpgradeDefinition,
-  type BarrackUpgradeDefinition,
 } from "../upgrades/definitions";
 
 const CASTLE_TRACKS: { id: CastleUpgradeTrack; name: string }[] = [
@@ -30,14 +30,14 @@ export interface BuildingUpgradePanelProps {
   config: GameConfig;
   currentPlayerId: string | null;
   playerState: PlayerState | undefined;
-  barrackUpgradeIds: string[];
+  barrackLevel: number;
   barrackBuyCapacity?: BarrackBuyCapacity;
   barrackRepairCooldownMs?: number;
   position: { left: number; top: number };
   bounds?: { left: number; top: number; right: number; bottom: number };
   isMobile?: boolean;
   onBuyCastleUpgrade: (playerId: string, trackId: CastleUpgradeTrack) => boolean;
-  onBuyBarrackUpgrade: (playerId: string, barrackId: string, upgradeId: string) => boolean;
+  onBuyBarrackUpgrade: (playerId: string, barrackId: string) => boolean;
   onBuyBarrackWarrior?: (playerId: string, barrackId: string) => boolean;
   onRepairBarrack?: (playerId: string, barrackId: string) => boolean;
   onCastCastleSpell?: (playerId: string, castleId: string, spellIndex: 0 | 1) => boolean;
@@ -46,10 +46,6 @@ export interface BuildingUpgradePanelProps {
   barrackHeroCooldowns?: Record<string, number>;
   onClose: () => void;
   gameOver?: boolean;
-}
-
-function getDefName(defs: BarrackUpgradeDefinition[], id: string): string | undefined {
-  return defs.find((d) => d.id === id)?.name;
 }
 
 function getUpgradeLevel(
@@ -209,7 +205,7 @@ function UpgradeCard({
   );
 }
 
-function UpgradeTreeView<T extends UpgradeDefinition | BuildingUpgradeDefinition | BarrackUpgradeDefinition>({
+function UpgradeTreeView<T extends UpgradeDefinition | BuildingUpgradeDefinition>({
   defs,
   ownedIds,
   canBuy,
@@ -265,25 +261,12 @@ function UpgradeTreeView<T extends UpgradeDefinition | BuildingUpgradeDefinition
   );
 }
 
-function canBuyBarrack(
-  def: BarrackUpgradeDefinition,
-  ps: PlayerState | undefined,
-  barrackIds: string[],
-): { can: boolean; reason?: string } {
-  if (!ps) return { can: false, reason: "Нет данных" };
-  if (barrackIds.includes(def.id)) return { can: false, reason: "Уже куплено" };
-  if (def.prerequisiteId && !barrackIds.includes(def.prerequisiteId))
-    return { can: false, reason: "Нужен prerequisite" };
-  if (ps.gold < def.cost) return { can: false, reason: `Нужно ${def.cost} золота` };
-  return { can: true };
-}
-
 export function BuildingUpgradePanel({
   entity,
   config,
   currentPlayerId,
   playerState,
-  barrackUpgradeIds,
+  barrackLevel,
   barrackBuyCapacity,
   barrackRepairCooldownMs = 0,
   position,
@@ -613,16 +596,20 @@ export function BuildingUpgradePanel({
                   touchFriendly ? "text-xs" : "text-[10px]"
                 }`}
               >
-                Улучшения барака
+                Улучшение барака
               </h4>
-              <UpgradeTreeView
-                defs={BARACK_UPGRADE_DEFINITIONS}
-                ownedIds={barrackUpgradeIds}
-                canBuy={(def) => canBuyBarrack(def, playerState, barrackUpgradeIds)}
-                onBuy={(def) => onBuyBarrackUpgrade(entity.ownerId, entity.id, def.id)}
+              <CastleTrackRow
+                name="Улучшить барак"
+                level={barrackLevel}
+                maxLevel={BARRACK_MAX_LEVEL}
+                cost={getBarrackUpgradeCost(barrackLevel) ?? 0}
+                canBuy={
+                  (playerState?.gold ?? 0) >= (getBarrackUpgradeCost(barrackLevel) ?? 0) &&
+                  barrackLevel < BARRACK_MAX_LEVEL
+                }
+                onBuy={() => onBuyBarrackUpgrade(entity.ownerId, entity.id)}
                 disabled={gameOver}
                 touchFriendly={touchFriendly}
-                getPrereqName={(id) => getDefName(BARACK_UPGRADE_DEFINITIONS, id)}
               />
             </div>
             )}

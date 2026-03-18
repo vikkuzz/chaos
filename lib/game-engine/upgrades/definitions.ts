@@ -27,6 +27,32 @@ export function getTrackUpgradeCost(level: number): number {
   return 150 + level * 50;
 }
 
+/** Стоимость улучшения барака по уровням (1, 2, 3). */
+const BARRACK_UPGRADE_COSTS = [1000, 1500, 2000] as const;
+export const BARRACK_MAX_LEVEL = 3;
+
+export function getBarrackUpgradeCost(level: number): number | null {
+  if (level < 0 || level >= BARRACK_MAX_LEVEL) return null;
+  return BARRACK_UPGRADE_COSTS[level];
+}
+
+/** Множители барака от уровня (0..3). При увеличении уровня: +юниты, +HP, +атака, -кулдаун спавна, +докупки. */
+export function getBarrackLevelMultipliers(level: number): {
+  hp: number;
+  attack: number;
+  spawnSpeed: number;
+  spawnCount: number;
+  buyCapacity: number;
+} {
+  const hp = 1 + 0.15 * level;
+  const attack = 1 + 0.15 * level;
+  const spawnSpeed = Math.pow(0.9, level);
+  const baseSpawn = 2;
+  const spawnCount = baseSpawn + level;
+  const buyCapacity = baseSpawn + level;
+  return { hp, attack, spawnSpeed, spawnCount, buyCapacity };
+}
+
 export function getRangedDamageMult(level: number): number {
   return 1 + 0.1 * level;
 }
@@ -373,85 +399,6 @@ export const BUILDING_UPGRADE_DEFINITIONS: BuildingUpgradeDefinition[] = [
   },
 ];
 
-export type BarrackUpgradeEffectType =
-  | "barrackHpMult"
-  | "barrackSpawnSpeedMult"
-  | "barrackSpawnCount";
-
-export interface BarrackUpgradeDefinition {
-  id: string;
-  name: string;
-  description: string;
-  cost: number;
-  effectType: BarrackUpgradeEffectType;
-  effectValue: number;
-  prerequisiteId?: string;
-}
-
-/** Улучшения бараков — покупаются отдельно для каждого барака. */
-export const BARACK_UPGRADE_DEFINITIONS: BarrackUpgradeDefinition[] = [
-  {
-    id: "barrack-reinforce",
-    name: "Укрепление барака",
-    description: "+20% HP барака",
-    cost: 50,
-    effectType: "barrackHpMult",
-    effectValue: 1.2,
-  },
-  {
-    id: "faster-recruit",
-    name: "Ускоренный набор",
-    description: "-15% время спавна",
-    cost: 60,
-    effectType: "barrackSpawnSpeedMult",
-    effectValue: 0.85,
-  },
-  {
-    id: "extra-recruit",
-    name: "Доп. рекрут",
-    description: "+1 воин за цикл спавна",
-    cost: 70,
-    effectType: "barrackSpawnCount",
-    effectValue: 1,
-  },
-  {
-    id: "barrack-fortify",
-    name: "Укрепление II",
-    description: "+20% HP барака",
-    cost: 80,
-    effectType: "barrackHpMult",
-    effectValue: 1.2,
-    prerequisiteId: "barrack-reinforce",
-  },
-  {
-    id: "barrack-bastion",
-    name: "Бастион",
-    description: "+20% HP барака",
-    cost: 120,
-    effectType: "barrackHpMult",
-    effectValue: 1.2,
-    prerequisiteId: "barrack-fortify",
-  },
-  {
-    id: "mass-recruit",
-    name: "Массовый набор",
-    description: "-15% время спавна",
-    cost: 100,
-    effectType: "barrackSpawnSpeedMult",
-    effectValue: 0.85,
-    prerequisiteId: "faster-recruit",
-  },
-  {
-    id: "war-machine",
-    name: "Военная машина",
-    description: "-15% время спавна",
-    cost: 140,
-    effectType: "barrackSpawnSpeedMult",
-    effectValue: 0.85,
-    prerequisiteId: "mass-recruit",
-  },
-];
-
 export function getBuildingUpgradeMultipliers(upgradeIds: string[]): {
   buildingHp: number;
   towerDamage: number;
@@ -476,34 +423,6 @@ export function getBuildingUpgradeMultipliers(upgradeIds: string[]): {
     }
   }
   return { buildingHp, towerDamage, castleDamage };
-}
-
-export interface BarrackUpgradeMultipliers {
-  barrackHp: number;
-  spawnSpeed: number;
-  spawnCount: number;
-}
-
-export function getBarrackUpgradeMultipliers(upgradeIds: string[]): BarrackUpgradeMultipliers {
-  let barrackHp = 1;
-  let spawnSpeed = 1;
-  let spawnCount = 1;
-  for (const id of upgradeIds) {
-    const def = BARACK_UPGRADE_DEFINITIONS.find((d) => d.id === id);
-    if (!def) continue;
-    switch (def.effectType) {
-      case "barrackHpMult":
-        barrackHp *= def.effectValue;
-        break;
-      case "barrackSpawnSpeedMult":
-        spawnSpeed *= def.effectValue;
-        break;
-      case "barrackSpawnCount":
-        spawnCount += def.effectValue;
-        break;
-    }
-  }
-  return { barrackHp, spawnSpeed, spawnCount };
 }
 
 export function applyUpgradesToStats(

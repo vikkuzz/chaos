@@ -161,7 +161,7 @@ export class GameServer {
         this.game.buyCastleUpgrade(action.playerId, action.trackId as import("../lib/game-engine/core/Game").CastleUpgradeTrack);
         break;
       case "buyBarrackUpgrade":
-        this.game.buyBarrackUpgrade(action.playerId, action.barrackId, action.upgradeId);
+        this.game.buyBarrackUpgrade(action.playerId, action.barrackId);
         break;
       case "buyBarrackWarrior":
         this.game.buyBarrackWarrior(action.playerId, action.barrackId);

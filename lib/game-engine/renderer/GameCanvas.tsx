@@ -11,7 +11,9 @@ import { BuildingUpgradePanel } from "./BuildingUpgradePanel";
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2;
 const PAN_THRESHOLD_DESKTOP = 8;
-const PAN_THRESHOLD_MOBILE = 24;
+const PAN_THRESHOLD_MOBILE = 50;
+/** На мобилке пан не стартует сразу — нужна задержка, чтобы короткий тап не считался жестом прокрутки. */
+const PAN_DELAY_MOBILE_MS = 100;
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -76,6 +78,7 @@ export function GameCanvas({
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const isPanningRef = useRef(false);
   const lastPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
+  const pointerDownTimeRef = useRef<number>(0);
   const lastPinchRef = useRef<{ dist: number; pan: { x: number; y: number }; center: { x: number; y: number } } | null>(null);
 
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(
@@ -107,6 +110,19 @@ export function GameCanvas({
   useEffect(() => {
     setSpawningEnabled(effectiveMode === "test");
   }, [effectiveMode, setSpawningEnabled]);
+
+  // На мобилке preventDefault не работает в React-обработчиках (passive: true по умолчанию).
+  // Вешаем нативный listener с passive: false, чтобы блокировать скролл/zoom и улучшить тапы.
+  useEffect(() => {
+    const el = overlayCanvasRef.current;
+    if (!el) return;
+    const onTouchStart = (e: Event) => {
+      const te = e as unknown as TouchEvent;
+      if (te.touches?.length === 1) e.preventDefault();
+    };
+    el.addEventListener("touchstart", onTouchStart, { passive: false });
+    return () => el.removeEventListener("touchstart", onTouchStart);
+  }, []);
 
   useEffect(() => {
     if (mode === "multiplayer" && playerId) {
@@ -603,6 +619,7 @@ export function GameCanvas({
 
     isPanningRef.current = false;
     lastPointerRef.current = { clientX, clientY };
+    pointerDownTimeRef.current = Date.now();
     lastPinchRef.current = null;
   };
 
@@ -652,12 +669,13 @@ export function GameCanvas({
       if (last) {
         const dx = clientX - last.clientX;
         const dy = clientY - last.clientY;
-        const panThreshold =
+        const isMobile =
           typeof window !== "undefined" &&
-          (window.matchMedia("(max-width: 640px)").matches || window.matchMedia("(pointer: coarse)").matches)
-            ? PAN_THRESHOLD_MOBILE
-            : PAN_THRESHOLD_DESKTOP;
-        if (!isPanningRef.current && Math.hypot(dx, dy) > panThreshold) {
+          (window.matchMedia("(max-width: 640px)").matches || window.matchMedia("(pointer: coarse)").matches);
+        const panThreshold = isMobile ? PAN_THRESHOLD_MOBILE : PAN_THRESHOLD_DESKTOP;
+        const elapsedMs = Date.now() - pointerDownTimeRef.current;
+        const delayPassed = !isMobile || elapsedMs >= PAN_DELAY_MOBILE_MS;
+        if (!isPanningRef.current && delayPassed && Math.hypot(dx, dy) > panThreshold) {
           isPanningRef.current = true;
         }
         if (isPanningRef.current) {
@@ -1253,7 +1271,7 @@ export function GameCanvas({
           top = rect.top + (entity.position.y / config.mapHeight) * rect.height;
         }
         const playerState = state.playerStates[entity.ownerId];
-        const barrackUpgradeIds = state.barrackUpgrades?.[entity.id] ?? [];
+        const barrackLevel = state.barrackLevels?.[entity.id] ?? 0;
         const barrackBuyCapacity = state.barrackBuyCapacity?.[entity.id];
         const barrackRepairCooldownMs = state.barrackRepairCooldownMs?.[entity.id] ?? 0;
         const barrackHeroCooldowns = state.barrackHeroCooldowns?.[entity.id] ?? {};
@@ -1269,7 +1287,7 @@ export function GameCanvas({
             config={config}
             currentPlayerId={playerId ?? selectedPlayerId}
             playerState={playerState}
-            barrackUpgradeIds={barrackUpgradeIds}
+            barrackLevel={barrackLevel}
             barrackBuyCapacity={barrackBuyCapacity}
             barrackRepairCooldownMs={barrackRepairCooldownMs}
             barrackHeroCooldowns={barrackHeroCooldowns}

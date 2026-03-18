@@ -15,15 +15,16 @@ import { MovementSystem, type HeroUnderAttack } from "../pathfinding/MovementSys
 import { CombatSystem } from "../combat/CombatSystem";
 import { validateGameConfig } from "../config/ConfigValidator";
 import {
-  BARACK_UPGRADE_DEFINITIONS,
   applyUpgradesToStatsFromLevels,
   getBuildingUpgradeMultipliersFromLevels,
-  getBarrackUpgradeMultipliers,
+  getBarrackUpgradeCost,
+  getBarrackLevelMultipliers,
   getCastleUpgradeCost,
   getTrackUpgradeCost,
   getMaxTrackLevel,
   getMaxMagicLevel,
   getCastleLevelMultipliers,
+  BARRACK_MAX_LEVEL,
 } from "../upgrades/definitions";
 import { runAutoDevelopment } from "../ai/AutoDevelopment";
 import type { WarriorStats } from "../entities/units/WarriorTypes";
@@ -102,7 +103,7 @@ export interface GameStateSnapshot {
   gameOver: boolean;
   winnerIds: string[];
   playerStates: Record<string, PlayerState>;
-  barrackUpgrades: Record<string, string[]>;
+  barrackLevels: Record<string, number>;
   barrackBuyCapacity: Record<string, BarrackBuyCapacity>;
   barrackRepairCooldownMs: Record<string, number>;
   /** Кулдауны вызова героев: barrackId -> heroTypeId -> оставшиеся мс. */
@@ -130,7 +131,7 @@ export class Game {
   private readonly warriors = new Map<EntityId, Warrior>();
   private readonly barracks = new Map<EntityId, Barrack>();
   private readonly playerStates = new Map<string, PlayerState>();
-  private readonly barrackUpgrades = new Map<EntityId, string[]>();
+  private readonly barrackLevels = new Map<EntityId, number>();
   private readonly neutralPoints = new Map<string, NeutralPoint>();
 
   private readonly movementSystem = new MovementSystem();
@@ -142,7 +143,7 @@ export class Game {
   private static readonly GOLD_PER_WARRIOR_KILL = 5;
   private static readonly GOLD_PER_HERO_KILL = 25;
   static readonly BUY_WARRIOR_COST = 30;
-  static readonly HERO_SUMMON_COST = 100;
+  static readonly HERO_SUMMON_COST = 1000;
   private static readonly HERO_RESPAWN_COOLDOWN_MS = 180000; // 3 минуты
   private static readonly HERO_UNDER_ATTACK_DURATION_MS = 2000;
   private spawningEnabled = false;
@@ -231,7 +232,7 @@ export class Game {
 
         this.addEntity(barrack);
         this.barracks.set(barrack.id, barrack);
-        this.barrackUpgrades.set(barrack.id, []);
+        this.barrackLevels.set(barrack.id, 0);
       }
 
       for (const towerConfig of player.towers) {
@@ -450,7 +451,7 @@ export class Game {
         this.entities.delete(id);
         this.warriors.delete(id);
         this.barracks.delete(id);
-        this.barrackUpgrades.delete(id);
+        this.barrackLevels.delete(id);
       }
     }
 
@@ -491,9 +492,9 @@ export class Game {
     for (const [id, ps] of this.playerStates) {
       playerStates[id] = { ...ps };
     }
-    const barrackUpgrades: Record<string, string[]> = {};
-    for (const [id, ids] of this.barrackUpgrades) {
-      barrackUpgrades[id] = [...ids];
+    const barrackLevels: Record<string, number> = {};
+    for (const [id, level] of this.barrackLevels) {
+      barrackLevels[id] = level;
     }
     const barrackBuyCapacity: Record<string, BarrackBuyCapacity> = {};
     const barrackRepairCooldownMs: Record<string, number> = {};
@@ -559,7 +560,7 @@ export class Game {
       gameOver: this.gameOver,
       winnerIds: this.winnerIds,
       playerStates,
-      barrackUpgrades,
+      barrackLevels,
       barrackBuyCapacity,
       barrackRepairCooldownMs,
       barrackHeroCooldowns,
@@ -639,21 +640,19 @@ export class Game {
     return true;
   }
 
-  buyBarrackUpgrade(playerId: string, barrackId: string, upgradeId: string): boolean {
+  buyBarrackUpgrade(playerId: string, barrackId: string): boolean {
     const barrack = this.barracks.get(barrackId);
     const ps = this.playerStates.get(playerId);
     if (!barrack || !ps || barrack.ownerId !== playerId) return false;
 
-    const def = BARACK_UPGRADE_DEFINITIONS.find((d) => d.id === upgradeId);
-    if (!def) return false;
+    const level = this.barrackLevels.get(barrackId) ?? 0;
+    if (level >= BARRACK_MAX_LEVEL) return false;
 
-    const ids = this.barrackUpgrades.get(barrackId) ?? [];
-    if (ids.includes(upgradeId)) return false;
-    if (def.prerequisiteId && !ids.includes(def.prerequisiteId)) return false;
-    if (ps.gold < def.cost) return false;
+    const cost = getBarrackUpgradeCost(level);
+    if (cost == null || ps.gold < cost) return false;
 
-    ps.gold -= def.cost;
-    this.barrackUpgrades.set(barrackId, [...ids, upgradeId]);
+    ps.gold -= cost;
+    this.barrackLevels.set(barrackId, level + 1);
     this.applyBarrackUpgrades(barrackId);
     return true;
   }
@@ -871,13 +870,15 @@ export class Game {
       } else if (entity.kind === "tower") {
         (entity as Tower).applyUpgrades(globalMult.buildingHp, globalMult.towerDamage);
       } else if (entity.kind === "barrack") {
-        const barrackIds = this.barrackUpgrades.get(entity.id) ?? [];
-        const barrackMult = getBarrackUpgradeMultipliers(barrackIds);
+        const barrackLevel = this.barrackLevels.get(entity.id) ?? 0;
+        const barrackMult = getBarrackLevelMultipliers(barrackLevel);
         (entity as Barrack).applyUpgrades(
           globalMult.buildingHp,
-          barrackMult.barrackHp,
+          barrackMult.hp,
+          barrackMult.attack,
           barrackMult.spawnSpeed,
           barrackMult.spawnCount,
+          barrackMult.buyCapacity,
         );
       }
     }
@@ -890,14 +891,16 @@ export class Game {
     if (!ps) return;
 
     const globalMult = getBuildingUpgradeMultipliersFromLevels(ps);
-    const barrackIds = this.barrackUpgrades.get(barrackId) ?? [];
-    const barrackMult = getBarrackUpgradeMultipliers(barrackIds);
+    const barrackLevel = this.barrackLevels.get(barrackId) ?? 0;
+    const barrackMult = getBarrackLevelMultipliers(barrackLevel);
 
     barrack.applyUpgrades(
       globalMult.buildingHp,
-      barrackMult.barrackHp,
+      barrackMult.hp,
+      barrackMult.attack,
       barrackMult.spawnSpeed,
       barrackMult.spawnCount,
+      barrackMult.buyCapacity,
     );
   }
 
@@ -1016,7 +1019,7 @@ export class Game {
 
     this.addEntity(barrack);
     this.barracks.set(barrack.id, barrack);
-    this.barrackUpgrades.set(barrack.id, []);
+    this.barrackLevels.set(barrack.id, 0);
     this.applyBuildingUpgradesToExisting(playerId);
     return barrack.id;
   }

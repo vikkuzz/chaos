@@ -32,6 +32,7 @@ export class Barrack extends Entity {
 
   public readonly attackRange: number;
   public attackDamage: number;
+  public readonly baseAttackDamage: number;
   public readonly attackIntervalMs: number;
   public attackCooldownMs = 0;
 
@@ -69,7 +70,8 @@ export class Barrack extends Entity {
     this.canSpawn = props.canSpawn ?? (() => true);
     this.spawnTimerMs = props.spawnIntervalMs; // Первый спавн сразу, следующие — по интервалу
     this.attackRange = props.attackRange ?? 0;
-    this.attackDamage = props.attackDamage ?? 0;
+    this.baseAttackDamage = props.attackDamage ?? 0;
+    this.attackDamage = this.baseAttackDamage;
     this.attackIntervalMs = props.attackIntervalMs ?? 600;
   }
 
@@ -160,30 +162,34 @@ export class Barrack extends Entity {
     };
   }
 
-  /**
-   * Применяет улучшения к бараку.
-   * @param globalHpMult — множитель HP от глобальных улучшений (stone-walls, fortress)
-   * @param barrackHpMult — множитель HP от улучшений барака (barrack-reinforce)
-   * @param spawnSpeedMult — множитель скорости спавна (faster-recruit)
-   * @param spawnCount — число воинов за один цикл спавна (extra-recruit)
-   */
   /** Здания получают на 20% меньше урона. */
   takeDamage(amount: number): void {
     super.takeDamage(Math.round(amount * 0.8));
   }
 
+  /**
+   * Применяет улучшения к бараку (уровневая система).
+   * @param globalHpMult — множитель HP от глобальных улучшений замка
+   * @param barrackHpMult — множитель HP от уровня барака
+   * @param barrackAttackMult — множитель атаки от уровня барака
+   * @param spawnSpeedMult — множитель скорости спавна (0.9^level)
+   * @param spawnCount — число воинов за цикл (2 + level)
+   * @param buyCapacity — макс. слотов докупки (2 + level)
+   */
   applyUpgrades(
     globalHpMult: number,
     barrackHpMult: number,
+    barrackAttackMult: number,
     spawnSpeedMult: number,
     spawnCount: number,
+    buyCapacity: number,
   ): void {
     const totalHp = Math.round(this.baseMaxHp * globalHpMult * barrackHpMult);
     this.applyMaxHpChange(totalHp);
+    this.attackDamage = Math.round(this.baseAttackDamage * barrackAttackMult);
     this.spawnIntervalMs = Math.round(this.baseSpawnIntervalMs * spawnSpeedMult);
-    // spawnCount: 1 = база, +1 за каждый extra-recruit. Итого воинов = база + (spawnCount - 1).
-    this.spawnCount = Math.max(1, this.warriorTypeIds.length + (spawnCount - 1));
-    this.buyCapacityMax = this.spawnCount;
+    this.spawnCount = Math.max(1, spawnCount);
+    this.buyCapacityMax = buyCapacity;
     if (this.buyCapacityCurrent > this.buyCapacityMax) {
       this.buyCapacityCurrent = this.buyCapacityMax;
     }

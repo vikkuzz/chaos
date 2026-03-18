@@ -5,7 +5,6 @@ export type GameAction =
       type: "buyBarrackUpgrade";
       playerId: string;
       barrackId: string;
-      upgradeId: string;
     }
   | { type: "buyBarrackWarrior"; playerId: string; barrackId: string }
   | { type: "summonHero"; playerId: string; barrackId: string; heroTypeId: string }

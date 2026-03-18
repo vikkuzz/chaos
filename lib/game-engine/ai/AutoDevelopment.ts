@@ -1,11 +1,12 @@
 import { Game, type GameStateSnapshot, type CastleUpgradeTrack } from "../core/Game";
 import { CASTLE_SPELL_1, CASTLE_SPELL_2 } from "../entities/base/Castle";
 import {
-  BARACK_UPGRADE_DEFINITIONS,
+  getBarrackUpgradeCost,
   getCastleUpgradeCost,
   getTrackUpgradeCost,
   getMaxTrackLevel,
   getMaxMagicLevel,
+  BARRACK_MAX_LEVEL,
 } from "../upgrades/definitions";
 
 const TICK_INTERVAL_MS = 2500;
@@ -249,22 +250,19 @@ export function runAutoDevelopment(
       }
     }
 
-    // Улучшения бараков
-    const barrackUpgrades = snapshot.barrackUpgrades ?? {};
+    // Улучшения бараков (уровневая система)
+    const barrackLevels = snapshot.barrackLevels ?? {};
     for (const entity of snapshot.entities) {
       if (entity.kind !== "barrack" || entity.ownerId !== playerId || !entity.isAlive) continue;
-      const barrackIds = barrackUpgrades[entity.id] ?? [];
-      for (const def of BARACK_UPGRADE_DEFINITIONS) {
-        if (barrackIds.includes(def.id)) continue;
-        if (def.prerequisiteId && !barrackIds.includes(def.prerequisiteId)) continue;
-        if (ps.gold >= def.cost) {
-          options.push({
-            type: "barrackUpgrade",
-            cost: def.cost,
-            upgradeId: def.id,
-            barrackId: entity.id,
-          });
-        }
+      const level = barrackLevels[entity.id] ?? 0;
+      if (level >= BARRACK_MAX_LEVEL) continue;
+      const cost = getBarrackUpgradeCost(level);
+      if (cost != null && ps.gold >= cost) {
+        options.push({
+          type: "barrackUpgrade",
+          cost,
+          barrackId: entity.id,
+        });
       }
     }
 
@@ -282,8 +280,8 @@ export function runAutoDevelopment(
         game.summonHero(playerId, choice.barrackId, choice.heroTypeId);
       } else if (choice.type === "repairBarrack" && choice.barrackId) {
         game.repairBarrack(playerId, choice.barrackId);
-      } else if (choice.type === "barrackUpgrade" && choice.barrackId && choice.upgradeId) {
-        game.buyBarrackUpgrade(playerId, choice.barrackId, choice.upgradeId);
+      } else if (choice.type === "barrackUpgrade" && choice.barrackId) {
+        game.buyBarrackUpgrade(playerId, choice.barrackId);
       } else if (choice.type === "castleUpgrade" && choice.trackId) {
         game.buyCastleUpgrade(playerId, choice.trackId);
       }
