@@ -178,6 +178,11 @@ export class GameServer {
       case "setBarrackRoute":
         this.game.setBarrackRoute(action.barrackId, action.waypoints);
         break;
+      case "setAutoDevelopmentEnabled":
+        if (this.humanPlayerIds.has(action.playerId)) {
+          this.game.setAutoDevelopmentEnabled(action.enabled);
+        }
+        break;
     }
   }
 

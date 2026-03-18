@@ -80,8 +80,8 @@ interface PurchaseOption {
 /**
  * Простой алгоритм авторазвития: периодически покупает самое дешёвое
  * доступное улучшение для каждого игрока. При угрозе бараку — докупает воина.
- * humanPlayerIds — игроки под управлением человека.
- * enabled — авторазвитие для человека (переключатель в UI). Боты всегда развиваются автоматически.
+ * humanPlayerIds — игроки под управлением человека (в локальном режиме — выбранный игрок).
+ * enabled — авторазвитие для человека (переключатель). При отключении — только человек не тратит, боты продолжают.
  */
 export function runAutoDevelopment(
   game: Game,
@@ -96,7 +96,7 @@ export function runAutoDevelopment(
   const buyWarriorCost = Game.BUY_WARRIOR_COST;
 
   for (const playerId of Object.keys(snapshot.playerStates)) {
-    // Пропускаем человека, только когда авторазвитие для него отключено
+    // Пропускаем человека только когда авторазвитие для него отключено
     if (humanPlayerIds.has(playerId) && !enabled) continue;
     const ps = snapshot.playerStates[playerId];
     if (!ps) continue;
@@ -156,14 +156,12 @@ export function runAutoDevelopment(
         .map((e) => (e as { heroTypeId?: string }).heroTypeId)
         .filter((id): id is string => !!id),
     );
-    const barrackHeroCooldowns = snapshot.barrackHeroCooldowns ?? {};
     if (heroTypeIds.length > 0 && ps.gold >= heroCost) {
       summonLoop: for (const entity of snapshot.entities) {
         if (entity.kind !== "barrack" || entity.ownerId !== playerId || !entity.isAlive) continue;
         for (const heroTypeId of heroTypeIds) {
           if (aliveHeroTypeIds.has(heroTypeId)) continue;
-          const cooldowns = barrackHeroCooldowns[entity.id] ?? {};
-          if ((cooldowns[heroTypeId] ?? 0) > 0) continue;
+          if (!game.canSummonHero(playerId, entity.id, heroTypeId)) continue;
           options.push({
             type: "summonHero",
             cost: heroCost,

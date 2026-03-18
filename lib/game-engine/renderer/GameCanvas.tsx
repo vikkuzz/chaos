@@ -78,6 +78,13 @@ export function GameCanvas({
   const lastPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const lastPinchRef = useRef<{ dist: number; pan: { x: number; y: number }; center: { x: number; y: number } } | null>(null);
 
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(
+    () => config.players[0]?.id ?? null,
+  );
+  const [devPanelPlayerId, setDevPanelPlayerId] = useState<string | null>(
+    () => config.players[0]?.id ?? null,
+  );
+
   const { state, playerId, setBarrackRoute, setBuildingPosition, addBarrack, addTower, addNeutralPoint, removeNeutralPoint, buyUpgrade, buyBarrackUpgrade, buyBarrackWarrior, repairBarrack, castCastleSpell, summonHero, setSpawningEnabled, setAutoDevelopmentEnabled } =
     useGameEngine(baseCanvasRef, config, viewportRef, {
       mode,
@@ -85,6 +92,7 @@ export function GameCanvas({
       multiplayerSocket,
       multiplayerPlayerId,
       multiplayerGameState,
+      localHumanPlayerId: mode === "local" ? selectedPlayerId : undefined,
     });
 
   const defaultPlayer = config.players[0];
@@ -99,12 +107,6 @@ export function GameCanvas({
   useEffect(() => {
     setSpawningEnabled(effectiveMode === "test");
   }, [effectiveMode, setSpawningEnabled]);
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(
-    () => config.players[0]?.id ?? null,
-  );
-  const [devPanelPlayerId, setDevPanelPlayerId] = useState<string | null>(
-    () => config.players[0]?.id ?? null,
-  );
 
   useEffect(() => {
     if (mode === "multiplayer" && playerId) {

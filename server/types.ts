@@ -16,7 +16,8 @@ export type GameAction =
       playerId: string;
       barrackId: string;
       waypoints: { x: number; y: number }[];
-    };
+    }
+  | { type: "setAutoDevelopmentEnabled"; playerId: string; enabled: boolean };
 
 export interface LobbyJoinPayload {
   playerSlot?: number;

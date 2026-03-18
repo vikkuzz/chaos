@@ -623,6 +623,19 @@ export class Game {
     return true;
   }
 
+  /** Проверка возможности вызова героя (для ИИ — использует актуальное состояние, не snapshot). */
+  canSummonHero(playerId: string, barrackId: string, heroTypeId: string): boolean {
+    const barrack = this.barracks.get(barrackId);
+    const ps = this.playerStates.get(playerId);
+    if (!barrack || !ps || barrack.ownerId !== playerId || !barrack.isAlive) return false;
+    const heroTypes = this.config.heroTypes ?? {};
+    if (!heroTypes[heroTypeId]) return false;
+    if (ps.gold < Game.HERO_SUMMON_COST) return false;
+    if (this.isHeroTypeAlive(playerId, heroTypeId)) return false;
+    if (this.getHeroCooldown(barrackId, heroTypeId) > 0) return false;
+    return true;
+  }
+
   /**
    * Вызвать героя из барака.
    * Герой типа X может быть только один в живых. При смерти — долгий кулдаун в бараке-источнике.
@@ -699,6 +712,13 @@ export class Game {
       const dx = warrior.position.x - cx;
       const dy = warrior.position.y - cy;
       if (dx * dx + dy * dy <= r2) {
+        if (warrior instanceof Hero && this.spawningEnabled) {
+          this.heroProgress.set(`${warrior.ownerId}-${warrior.heroTypeId}`, {
+            level: warrior.level,
+            xp: warrior.xp,
+          });
+          this.setHeroCooldown(warrior.sourceBarrackId, warrior.heroTypeId);
+        }
         warrior.takeDamage(warrior.maxHp);
       }
     }

@@ -21,6 +21,8 @@ export interface UseGameEngineOptions {
   multiplayerSocket?: Socket;
   multiplayerPlayerId?: string | null;
   multiplayerGameState?: GameStateSnapshot | null;
+  /** При mode=local — ID игрока-человека (выбранный в UI). Для авторазвития: при отключении не тратит только он. */
+  localHumanPlayerId?: string | null;
 }
 
 export interface ExtraBuilding {
@@ -80,6 +82,7 @@ export function useGameEngine(
   const multiplayerSocket = options?.multiplayerSocket;
   const multiplayerPlayerId = options?.multiplayerPlayerId;
   const multiplayerGameState = options?.multiplayerGameState;
+  const localHumanPlayerId = options?.localHumanPlayerId;
 
   const [game, setGame] = useState<Game | null>(null);
   const [state, setState] = useState<GameStateSnapshot | null>(null);
@@ -240,6 +243,12 @@ export function useGameEngine(
       setState(null);
     };
   }, [canvasRef, config, viewportRef, mode, multiplayerSocket, multiplayerPlayerId]);
+
+  useEffect(() => {
+    if (mode === "local" && game) {
+      game.setHumanPlayerIds(new Set(localHumanPlayerId ? [localHumanPlayerId] : []));
+    }
+  }, [mode, game, localHumanPlayerId]);
 
   const setBarrackRoute = useCallback((barrackId: string, waypoints: { x: number; y: number }[]) => {
     if (mode === "multiplayer") {
@@ -461,7 +470,17 @@ export function useGameEngine(
   }, [mode]);
 
   const setAutoDevelopmentEnabled = useCallback((enabled: boolean): void => {
-    if (mode === "multiplayer") return;
+    if (mode === "multiplayer") {
+      const pid = playerIdRef.current;
+      if (pid && socketRef.current) {
+        socketRef.current.emit("game:action", {
+          type: "setAutoDevelopmentEnabled",
+          playerId: pid,
+          enabled,
+        });
+      }
+      return;
+    }
     gameRef.current?.setAutoDevelopmentEnabled(enabled);
   }, [mode]);
 
