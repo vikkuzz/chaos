@@ -1114,6 +1114,24 @@ export function GameCanvas({
             </label>
           </div>
         )}
+        {isMobile && state && (() => {
+          const currentPlayerId = playerId ?? selectedPlayerId;
+          const ps = currentPlayerId ? state.playerStates[currentPlayerId] : null;
+          if (!ps) return null;
+          const player = config.players.find((p) => p.id === currentPlayerId);
+          return (
+            <div
+              className="absolute top-2 right-2 z-10 flex items-center gap-1.5 rounded-full bg-slate-900/90 px-3 py-2 shadow-lg ring-1 ring-slate-600/60"
+              style={player ? { borderLeft: `3px solid ${player.color}` } : undefined}
+              aria-label={`Золото: ${Math.floor(ps.gold)}`}
+            >
+              <span className="text-base leading-none">🪙</span>
+              <span className="font-semibold tabular-nums text-amber-400 text-sm min-w-[2.5rem]">
+                {Math.floor(ps.gold)}
+              </span>
+            </div>
+          );
+        })()}
         <div className="absolute bottom-2 right-2 z-10 flex flex-col gap-1 rounded-lg bg-slate-800/90 p-1 shadow-lg md:bottom-3 md:right-3">
           <button
             type="button"
