@@ -31,6 +31,11 @@ export class Tower extends Entity {
     this.attackDamage = Math.round(this.baseAttackDamage * damageMult);
   }
 
+  /** Здания получают на 20% меньше урона. */
+  takeDamage(amount: number): void {
+    super.takeDamage(Math.round(amount * 0.8));
+  }
+
   update(deltaTimeMs: number): void {
     this.attackCooldownMs = Math.max(0, this.attackCooldownMs - deltaTimeMs);
   }

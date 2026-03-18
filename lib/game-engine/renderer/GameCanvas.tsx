@@ -85,7 +85,7 @@ export function GameCanvas({
     () => config.players[0]?.id ?? null,
   );
 
-  const { state, playerId, setBarrackRoute, setBuildingPosition, addBarrack, addTower, addNeutralPoint, removeNeutralPoint, buyUpgrade, buyBarrackUpgrade, buyBarrackWarrior, repairBarrack, castCastleSpell, summonHero, setSpawningEnabled, setAutoDevelopmentEnabled } =
+  const { state, playerId, setBarrackRoute, setBuildingPosition, addBarrack, addTower, addNeutralPoint, removeNeutralPoint, buyCastleUpgrade, buyBarrackUpgrade, buyBarrackWarrior, repairBarrack, castCastleSpell, summonHero, setSpawningEnabled, setAutoDevelopmentEnabled } =
     useGameEngine(baseCanvasRef, config, viewportRef, {
       mode,
       socketUrl,
@@ -1278,7 +1278,7 @@ export function GameCanvas({
             position={{ left, top }}
             bounds={{ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }}
             isMobile={isMobile}
-            onBuyUpgrade={buyUpgrade}
+            onBuyCastleUpgrade={buyCastleUpgrade}
             onBuyBarrackUpgrade={buyBarrackUpgrade}
             onBuyBarrackWarrior={buyBarrackWarrior}
             onRepairBarrack={repairBarrack}

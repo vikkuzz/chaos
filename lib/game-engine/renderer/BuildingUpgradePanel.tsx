@@ -1,42 +1,33 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Game, type PlayerState, type BarrackBuyCapacity, type EntitySnapshot } from "../core/Game";
-import { CASTLE_SPELL } from "../entities/base/Castle";
+import { useMemo } from "react";
+import { Game, type PlayerState, type BarrackBuyCapacity, type EntitySnapshot, type CastleUpgradeTrack } from "../core/Game";
+import { CASTLE_SPELL, CASTLE_SPELL_1, CASTLE_SPELL_2 } from "../entities/base/Castle";
 import type { GameConfig } from "../config/defaultConfig";
 import {
-  UPGRADE_DEFINITIONS,
-  BUILDING_UPGRADE_DEFINITIONS,
   BARACK_UPGRADE_DEFINITIONS,
-  CASTLE_BUILDING_UPGRADE_IDS,
+  getCastleUpgradeCost,
+  getTrackUpgradeCost,
+  getMaxTrackLevel,
+  getMaxMagicLevel,
   type UpgradeDefinition,
   type BuildingUpgradeDefinition,
   type BarrackUpgradeDefinition,
 } from "../upgrades/definitions";
 
-function getMaxUpgradeLevel(
-  ownedIds: string[],
-  defs: { id: string; prerequisiteId?: string }[],
-): number {
-  let maxLevel = 0;
-  for (const id of ownedIds) {
-    const def = defs.find((d) => d.id === id);
-    if (!def) continue;
-    let level = 0;
-    let current: typeof def | undefined = def;
-    while (current?.prerequisiteId) {
-      level += 1;
-      current = defs.find((d) => d.id === current!.prerequisiteId);
-    }
-    maxLevel = Math.max(maxLevel, level);
-  }
-  return maxLevel;
-}
+const CASTLE_TRACKS: { id: CastleUpgradeTrack; name: string }[] = [
+  { id: "castle", name: "Улучшение замка" },
+  { id: "ranged", name: "Дальние атаки" },
+  { id: "melee", name: "Ближние атаки" },
+  { id: "buildingHp", name: "Прочность зданий" },
+  { id: "unitHp", name: "HP юнитов" },
+  { id: "unitDefense", name: "Защита юнитов" },
+  { id: "magic", name: "Прокачка магии" },
+];
 
 export interface BuildingUpgradePanelProps {
   entity: EntitySnapshot;
   config: GameConfig;
-  /** ID игрока под управлением юзера. Если здание чужое — только просмотр. */
   currentPlayerId: string | null;
   playerState: PlayerState | undefined;
   barrackUpgradeIds: string[];
@@ -44,23 +35,22 @@ export interface BuildingUpgradePanelProps {
   barrackRepairCooldownMs?: number;
   position: { left: number; top: number };
   bounds?: { left: number; top: number; right: number; bottom: number };
-  /** На мобильном — панель снизу (bottom sheet). */
   isMobile?: boolean;
-  onBuyUpgrade: (playerId: string, upgradeId: string) => boolean;
+  onBuyCastleUpgrade: (playerId: string, trackId: CastleUpgradeTrack) => boolean;
   onBuyBarrackUpgrade: (playerId: string, barrackId: string, upgradeId: string) => boolean;
   onBuyBarrackWarrior?: (playerId: string, barrackId: string) => boolean;
   onRepairBarrack?: (playerId: string, barrackId: string) => boolean;
-  onCastCastleSpell?: (playerId: string, castleId: string) => boolean;
+  onCastCastleSpell?: (playerId: string, castleId: string, spellIndex: 0 | 1) => boolean;
   onSummonHero?: (playerId: string, barrackId: string, heroTypeId: string) => boolean;
-  /** Типы героев, которые сейчас живы у этого игрока. */
   aliveHeroTypeIds?: Set<string>;
-  /** Кулдауны героев для этого барака: heroTypeId -> оставшиеся мс. */
   barrackHeroCooldowns?: Record<string, number>;
   onClose: () => void;
   gameOver?: boolean;
 }
 
-type UpgradeDef = UpgradeDefinition | BuildingUpgradeDefinition | BarrackUpgradeDefinition;
+function getDefName(defs: BarrackUpgradeDefinition[], id: string): string | undefined {
+  return defs.find((d) => d.id === id)?.name;
+}
 
 function getUpgradeLevel(
   def: { prerequisiteId?: string },
@@ -86,6 +76,52 @@ function groupByLevel<T extends { id: string; prerequisiteId?: string }>(
   return Array.from(byLevel.entries())
     .sort((a, b) => a[0] - b[0])
     .map(([level, items]) => ({ level, items }));
+}
+
+interface CastleTrackRowProps {
+  name: string;
+  level: number;
+  maxLevel: number;
+  cost: number | null;
+  canBuy: boolean;
+  onBuy: () => void;
+  disabled?: boolean;
+  touchFriendly?: boolean;
+}
+
+function CastleTrackRow({ name, level, maxLevel, cost, canBuy, onBuy, disabled, touchFriendly }: CastleTrackRowProps) {
+  const atMax = level >= maxLevel;
+  return (
+    <li
+      className={`flex items-center justify-between gap-2 rounded border px-3 py-2 ${
+        touchFriendly ? "py-3" : "py-2"
+      } border-slate-600 bg-slate-700/40`}
+    >
+      <div className="min-w-0 flex-1">
+        <div className={`font-medium text-slate-200 ${touchFriendly ? "text-sm" : "text-xs"}`}>{name}</div>
+        <div className={`text-slate-500 ${touchFriendly ? "text-xs" : "text-[10px]"}`}>
+          {level}/{maxLevel}
+        </div>
+      </div>
+      {atMax ? (
+        <span className="shrink-0 text-emerald-400 text-sm">✓</span>
+      ) : (
+        <div className="flex shrink-0 items-center gap-2">
+          <span className={`text-amber-400 ${touchFriendly ? "text-sm" : "text-xs"}`}>🪙{cost}</span>
+          <button
+            type="button"
+            disabled={!canBuy || disabled}
+            onClick={onBuy}
+            className={`rounded font-medium transition min-h-[44px] min-w-[80px] ${
+              touchFriendly ? "px-4 py-2 text-sm" : "px-2 py-1 text-xs"
+            } ${canBuy && !disabled ? "bg-amber-500 text-slate-900 hover:bg-amber-400" : "cursor-not-allowed bg-slate-600 text-slate-500"}`}
+          >
+            Купить
+          </button>
+        </div>
+      )}
+    </li>
+  );
 }
 
 interface UpgradeCardProps {
@@ -229,23 +265,6 @@ function UpgradeTreeView<T extends UpgradeDefinition | BuildingUpgradeDefinition
   );
 }
 
-const castleBuildingDefs = BUILDING_UPGRADE_DEFINITIONS.filter((d) =>
-  (CASTLE_BUILDING_UPGRADE_IDS as readonly string[]).includes(d.id),
-);
-
-function canBuyGlobal(
-  def: UpgradeDefinition | BuildingUpgradeDefinition,
-  ps: PlayerState | undefined,
-  ids: string[],
-): { can: boolean; reason?: string } {
-  if (!ps) return { can: false, reason: "Нет данных" };
-  if (ids.includes(def.id)) return { can: false, reason: "Уже куплено" };
-  if (def.prerequisiteId && !ids.includes(def.prerequisiteId))
-    return { can: false, reason: "Нужен prerequisite" };
-  if (ps.gold < def.cost) return { can: false, reason: `Нужно ${def.cost} золота` };
-  return { can: true };
-}
-
 function canBuyBarrack(
   def: BarrackUpgradeDefinition,
   ps: PlayerState | undefined,
@@ -259,10 +278,6 @@ function canBuyBarrack(
   return { can: true };
 }
 
-function getDefName(defs: UpgradeDef[], id: string): string | undefined {
-  return defs.find((d) => d.id === id)?.name;
-}
-
 export function BuildingUpgradePanel({
   entity,
   config,
@@ -274,7 +289,7 @@ export function BuildingUpgradePanel({
   position,
   bounds,
   isMobile = false,
-  onBuyUpgrade,
+  onBuyCastleUpgrade,
   onBuyBarrackUpgrade,
   onBuyBarrackWarrior,
   onRepairBarrack,
@@ -285,7 +300,6 @@ export function BuildingUpgradePanel({
   onClose,
   gameOver,
 }: BuildingUpgradePanelProps) {
-  const [castleTab, setCastleTab] = useState<"warriors" | "buildings">("warriors");
   const player = config.players.find((p) => p.id === entity.ownerId);
   const isCastle = entity.kind === "castle";
   const isBarrack = entity.kind === "barrack";
@@ -381,116 +395,91 @@ export function BuildingUpgradePanel({
           <div className="text-[10px] text-slate-500 italic">Только просмотр</div>
         )}
 
-        {isCastle && entity.kind === "castle" && (
-          <>
-            <div className={`text-slate-500 ${touchFriendly ? "text-sm" : "text-[10px]"}`}>
-              HP {entity.hp}/{entity.maxHp} · урон {(entity as { attackDamage?: number }).attackDamage ?? "—"}
-            </div>
-            {isOwnBuilding && onCastCastleSpell && (() => {
-              const manaRaw = (entity as { mana?: number }).mana ?? 0;
-              const mana = Math.floor(manaRaw);
-              const cooldownMs = (entity as { spellCooldownMs?: number }).spellCooldownMs ?? 0;
-              const cooldownSec = Math.max(0, Math.ceil(cooldownMs / 1000));
-              const canCast = !gameOver && manaRaw >= CASTLE_SPELL.SPELL_COST && cooldownMs <= 0;
-              return (
-                <div
-                  className={`flex items-center justify-between gap-2 rounded border border-slate-600 bg-slate-700/40 px-3 ${
-                    touchFriendly ? "py-3 min-h-[44px]" : "py-2"
-                  }`}
-                >
-                  <div className={touchFriendly ? "text-sm" : "text-xs"}>
-                    <span className="text-slate-400">Заклинание:</span>{" "}
-                    <span className="font-medium text-slate-200">
-                      {mana}/{entity.maxMana ?? CASTLE_SPELL.MANA_MAX}
-                    </span>
-                    <span className="ml-1 text-violet-400">мана</span>
-                    {cooldownSec > 0 && (
-                      <span className="ml-1 text-amber-400 font-medium">
-                        · откат {cooldownSec} сек
-                      </span>
-                    )}
-                  </div>
+        {isCastle && entity.kind === "castle" && (() => {
+          const ps = playerState;
+          const manaRaw = (entity as { mana?: number }).mana ?? 0;
+          const spell1Cd = (entity as { spell1CooldownMs?: number }).spell1CooldownMs ?? 0;
+          const spell2Cd = (entity as { spell2CooldownMs?: number }).spell2CooldownMs ?? 0;
+          const castleLevel = ps?.castleLevel ?? 0;
+          const maxTrack = getMaxTrackLevel(castleLevel);
+          const maxMagic = getMaxMagicLevel(castleLevel);
+
+          return (
+            <>
+              <div className={`text-slate-500 ${touchFriendly ? "text-sm" : "text-[10px]"}`}>
+                HP {entity.hp}/{entity.maxHp} · урон {(entity as { attackDamage?: number }).attackDamage ?? "—"} · мана {Math.floor(manaRaw)}/{entity.maxMana ?? CASTLE_SPELL.MANA_MAX}
+              </div>
+              {isOwnBuilding && onCastCastleSpell && (
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    disabled={!canCast}
-                    onClick={() => onCastCastleSpell(entity.ownerId, entity.id)}
-                    className={`rounded font-medium transition ${
-                      touchFriendly ? "min-h-[44px] min-w-[80px] px-4 py-2 text-sm" : "px-2 py-1 text-xs"
-                    } ${
-                      canCast
-                        ? "bg-violet-600 text-white hover:bg-violet-500 active:bg-violet-700"
+                    disabled={gameOver || manaRaw < CASTLE_SPELL_1.MANA_COST || spell1Cd > 0}
+                    onClick={() => onCastCastleSpell(entity.ownerId, entity.id, 0)}
+                    className={`rounded font-medium transition ${touchFriendly ? "min-h-[44px] px-4 py-2 text-sm" : "px-2 py-1 text-xs"} ${
+                      manaRaw >= CASTLE_SPELL_1.MANA_COST && spell1Cd <= 0 && !gameOver
+                        ? "bg-violet-600 text-white hover:bg-violet-500"
                         : "cursor-not-allowed bg-slate-600 text-slate-500"
                     }`}
-                    title={`Убить врагов в радиусе ${CASTLE_SPELL.SPELL_RADIUS} (стоит ${CASTLE_SPELL.SPELL_COST} маны)`}
+                    title={`Урон 100×100 вокруг угрожаемого здания (${CASTLE_SPELL_1.MANA_COST} маны)`}
                   >
-                    {canCast ? "✨ Каст" : `✨ Каст (${cooldownSec})`}
+                    ✨ Закл.1 {spell1Cd > 0 ? `(${Math.ceil(spell1Cd / 1000)})` : ""}
                   </button>
+                  {castleLevel >= 2 && (
+                    <button
+                      type="button"
+                      disabled={gameOver || manaRaw < CASTLE_SPELL_2.MANA_COST || spell2Cd > 0}
+                      onClick={() => onCastCastleSpell(entity.ownerId, entity.id, 1)}
+                      className={`rounded font-medium transition ${touchFriendly ? "min-h-[44px] px-4 py-2 text-sm" : "px-2 py-1 text-xs"} ${
+                        manaRaw >= CASTLE_SPELL_2.MANA_COST && spell2Cd <= 0 && !gameOver
+                          ? "bg-violet-700 text-white hover:bg-violet-600"
+                          : "cursor-not-allowed bg-slate-600 text-slate-500"
+                      }`}
+                      title={`Убить в радиусе ${CASTLE_SPELL_2.RADIUS} (${CASTLE_SPELL_2.MANA_COST} маны)`}
+                    >
+                      ✨ Закл.2 {spell2Cd > 0 ? `(${Math.ceil(spell2Cd / 1000)})` : ""}
+                    </button>
+                  )}
                 </div>
-              );
-            })()}
-            {isOwnBuilding && (
-            <>
-            <div
-              className={`flex rounded-lg bg-slate-700 p-0.5 ${touchFriendly ? "min-h-[44px]" : ""}`}
-              role="tablist"
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={castleTab === "warriors"}
-                onClick={() => setCastleTab("warriors")}
-                className={`flex-1 rounded-md font-medium transition ${
-                  castleTab === "warriors"
-                    ? "bg-amber-500 text-slate-900"
-                    : "text-slate-300 hover:bg-slate-600"
-                } ${touchFriendly ? "py-2 text-sm" : "py-1.5 text-xs"}`}
-              >
-                Воины
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={castleTab === "buildings"}
-                onClick={() => setCastleTab("buildings")}
-                className={`flex-1 rounded-md font-medium transition ${
-                  castleTab === "buildings"
-                    ? "bg-amber-500 text-slate-900"
-                    : "text-slate-300 hover:bg-slate-600"
-                } ${touchFriendly ? "py-2 text-sm" : "py-1.5 text-xs"}`}
-              >
-                Здания
-              </button>
-            </div>
-            {castleTab === "warriors" && (
-              <UpgradeTreeView
-                defs={UPGRADE_DEFINITIONS}
-                ownedIds={playerState?.upgradeIds ?? []}
-                canBuy={(def) =>
-                  canBuyGlobal(def, playerState, playerState?.upgradeIds ?? [])
-                }
-                onBuy={(def) => onBuyUpgrade(entity.ownerId, def.id)}
-                disabled={gameOver}
-                touchFriendly={touchFriendly}
-                getPrereqName={(id) => getDefName(UPGRADE_DEFINITIONS, id)}
-              />
-            )}
-            {castleTab === "buildings" && (
-              <UpgradeTreeView
-                defs={castleBuildingDefs}
-                ownedIds={playerState?.buildingUpgradeIds ?? []}
-                canBuy={(def) =>
-                  canBuyGlobal(def, playerState, playerState?.buildingUpgradeIds ?? [])
-                }
-                onBuy={(def) => onBuyUpgrade(entity.ownerId, def.id)}
-                disabled={gameOver}
-                touchFriendly={touchFriendly}
-                getPrereqName={(id) => getDefName(BUILDING_UPGRADE_DEFINITIONS, id)}
-              />
-            )}
+              )}
+              {isOwnBuilding && ps && (
+                <ul className="flex flex-col gap-2">
+                  {CASTLE_TRACKS.map(({ id, name }) => {
+                    const level =
+                      id === "castle"
+                        ? ps.castleLevel
+                        : id === "ranged"
+                          ? ps.rangedLevel
+                          : id === "melee"
+                            ? ps.meleeLevel
+                            : id === "buildingHp"
+                              ? ps.buildingHpLevel
+                              : id === "unitHp"
+                                ? ps.unitHpLevel
+                                : id === "unitDefense"
+                                  ? ps.unitDefenseLevel
+                                  : ps.magicLevel;
+                    const maxLevel = id === "castle" ? 3 : id === "magic" ? maxMagic : maxTrack;
+                    const cost = id === "castle" ? getCastleUpgradeCost(level) : getTrackUpgradeCost(level);
+                    const canBuy = cost != null && ps.gold >= cost && level < maxLevel;
+                    return (
+                      <CastleTrackRow
+                        key={id}
+                        name={name}
+                        level={level}
+                        maxLevel={maxLevel}
+                        cost={cost ?? 0}
+                        canBuy={canBuy}
+                        onBuy={() => onBuyCastleUpgrade(entity.ownerId, id)}
+                        disabled={gameOver}
+                        touchFriendly={touchFriendly}
+                      />
+                    );
+                  })}
+                </ul>
+              )}
             </>
-            )}
-          </>
-        )}
+          );
+        })()}
 
         {isBarrack && entity.kind === "barrack" && (
           <>

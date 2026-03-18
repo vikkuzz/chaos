@@ -1,6 +1,6 @@
 /** Экшены, которые клиент отправляет на сервер. */
 export type GameAction =
-  | { type: "buyUpgrade"; playerId: string; upgradeId: string }
+  | { type: "buyCastleUpgrade"; playerId: string; trackId: string }
   | {
       type: "buyBarrackUpgrade";
       playerId: string;
@@ -10,7 +10,12 @@ export type GameAction =
   | { type: "buyBarrackWarrior"; playerId: string; barrackId: string }
   | { type: "summonHero"; playerId: string; barrackId: string; heroTypeId: string }
   | { type: "repairBarrack"; playerId: string; barrackId: string }
-  | { type: "castCastleSpell"; playerId: string; castleId: string }
+  | {
+      type: "castCastleSpell";
+      playerId: string;
+      castleId: string;
+      spellIndex?: 0 | 1;
+    }
   | {
       type: "setBarrackRoute";
       playerId: string;

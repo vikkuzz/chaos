@@ -157,8 +157,8 @@ export class GameServer {
     if (!playerId || action.playerId !== playerId) return;
 
     switch (action.type) {
-      case "buyUpgrade":
-        this.game.buyUpgrade(action.playerId, action.upgradeId);
+      case "buyCastleUpgrade":
+        this.game.buyCastleUpgrade(action.playerId, action.trackId as import("../lib/game-engine/core/Game").CastleUpgradeTrack);
         break;
       case "buyBarrackUpgrade":
         this.game.buyBarrackUpgrade(action.playerId, action.barrackId, action.upgradeId);
@@ -173,7 +173,7 @@ export class GameServer {
         this.game.repairBarrack(action.playerId, action.barrackId);
         break;
       case "castCastleSpell":
-        this.game.castCastleSpell(action.playerId, action.castleId);
+        this.game.castCastleSpell(action.playerId, action.castleId, action.spellIndex ?? 0);
         break;
       case "setBarrackRoute":
         this.game.setBarrackRoute(action.barrackId, action.waypoints);

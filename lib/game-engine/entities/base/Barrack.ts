@@ -13,6 +13,10 @@ export interface BarrackProps extends Omit<EntityProps, "kind"> {
   onSpawnWarrior: (warrior: Warrior) => void;
   /** Если задан, спавн происходит только когда эта функция возвращает true (у игрока есть хотя бы одно здание). */
   canSpawn?: () => boolean;
+  /** Дальняя атака по врагам в радиусе. */
+  attackRange?: number;
+  attackDamage?: number;
+  attackIntervalMs?: number;
 }
 
 /**
@@ -25,6 +29,11 @@ export class Barrack extends Entity {
   public readonly baseSpawnIntervalMs: number;
   public readonly warriorTypeIds: readonly WarriorTypeId[];
   public readonly routeManager: RouteManager;
+
+  public readonly attackRange: number;
+  public attackDamage: number;
+  public readonly attackIntervalMs: number;
+  public attackCooldownMs = 0;
 
   private readonly resolveStatsForType: (ownerId: string, typeId: WarriorTypeId) => WarriorStats;
   private readonly onSpawnWarrior: (warrior: Warrior) => void;
@@ -59,9 +68,13 @@ export class Barrack extends Entity {
     this.onSpawnWarrior = props.onSpawnWarrior;
     this.canSpawn = props.canSpawn ?? (() => true);
     this.spawnTimerMs = props.spawnIntervalMs; // Первый спавн сразу, следующие — по интервалу
+    this.attackRange = props.attackRange ?? 0;
+    this.attackDamage = props.attackDamage ?? 0;
+    this.attackIntervalMs = props.attackIntervalMs ?? 600;
   }
 
   update(deltaTimeMs: number): void {
+    this.attackCooldownMs = Math.max(0, this.attackCooldownMs - deltaTimeMs);
     this.spawnTimerMs += deltaTimeMs;
 
     const effectiveInterval = this.isAlive
@@ -154,6 +167,11 @@ export class Barrack extends Entity {
    * @param spawnSpeedMult — множитель скорости спавна (faster-recruit)
    * @param spawnCount — число воинов за один цикл спавна (extra-recruit)
    */
+  /** Здания получают на 20% меньше урона. */
+  takeDamage(amount: number): void {
+    super.takeDamage(Math.round(amount * 0.8));
+  }
+
   applyUpgrades(
     globalHpMult: number,
     barrackHpMult: number,

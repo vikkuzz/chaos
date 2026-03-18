@@ -1,5 +1,107 @@
 import type { WarriorStats } from "../entities/units/WarriorTypes";
 
+/** Уровни улучшений замка (для расчёта без циклического импорта). */
+export interface CastleUpgradeLevels {
+  castleLevel: number;
+  rangedLevel: number;
+  meleeLevel: number;
+  buildingHpLevel: number;
+  unitHpLevel: number;
+  unitDefenseLevel: number;
+  magicLevel: number;
+}
+
+/** Порог: attackRange > RANGED_THRESHOLD = дальняя атака. */
+const RANGED_THRESHOLD = 25;
+
+/** Стоимость улучшения замка по уровням (1, 2, 3). */
+const CASTLE_UPGRADE_COSTS = [1000, 1500, 2000] as const;
+
+export function getCastleUpgradeCost(level: number): number | null {
+  if (level < 0 || level >= CASTLE_UPGRADE_COSTS.length) return null;
+  return CASTLE_UPGRADE_COSTS[level];
+}
+
+/** Стоимость прокачки треков (ranged, melee, buildingHp, unitHp, unitDefense, magic): 150 + N×50. */
+export function getTrackUpgradeCost(level: number): number {
+  return 150 + level * 50;
+}
+
+export function getRangedDamageMult(level: number): number {
+  return 1 + 0.1 * level;
+}
+
+export function getMeleeDamageMult(level: number): number {
+  return 1 + 0.1 * level;
+}
+
+export function getBuildingHpMult(level: number): number {
+  return 1 + 0.1 * level;
+}
+
+export function getUnitHpMult(level: number): number {
+  return 1 + 0.1 * level;
+}
+
+/** Броня: 5% за уровень (снижение урона). */
+export function getUnitArmor(level: number): number {
+  return Math.min(0.5, 0.05 * level);
+}
+
+export function getSpell1Damage(magicLevel: number): number {
+  return 50 + 20 * magicLevel;
+}
+
+/** Множители HP и урона замка от уровня (0..3). */
+export function getCastleLevelMultipliers(castleLevel: number): { hp: number; damage: number } {
+  const mult = 1 + 0.15 * castleLevel;
+  return { hp: mult, damage: mult };
+}
+
+/** Макс уровень треков (ranged, melee, buildingHp, unitHp, unitDefense): 4 + castleLevel*4. */
+export function getMaxTrackLevel(castleLevel: number): number {
+  return 4 + castleLevel * 4;
+}
+
+/** Макс уровень магии: 1 + castleLevel. */
+export function getMaxMagicLevel(castleLevel: number): number {
+  return 1 + castleLevel;
+}
+
+/** Применить улучшения воина по уровням. */
+export function applyUpgradesToStatsFromLevels(
+  baseStats: WarriorStats,
+  levels: CastleUpgradeLevels,
+): WarriorStats {
+  const isRanged = baseStats.attackRange > RANGED_THRESHOLD;
+  const damageMult = isRanged ? getRangedDamageMult(levels.rangedLevel) : getMeleeDamageMult(levels.meleeLevel);
+  const hpMult = getUnitHpMult(levels.unitHpLevel);
+  const armor = getUnitArmor(levels.unitDefenseLevel);
+
+  return {
+    ...baseStats,
+    maxHp: Math.round(baseStats.maxHp * hpMult),
+    attackDamage: Math.round(baseStats.attackDamage * damageMult),
+    armor,
+  };
+}
+
+/** Множители зданий по уровням (buildingHp + castle level). */
+export function getBuildingUpgradeMultipliersFromLevels(levels: CastleUpgradeLevels): {
+  buildingHp: number;
+  towerDamage: number;
+  castleHp: number;
+  castleDamage: number;
+} {
+  const castleMult = getCastleLevelMultipliers(levels.castleLevel);
+  return {
+    buildingHp: getBuildingHpMult(levels.buildingHpLevel),
+    towerDamage: 1,
+    castleHp: castleMult.hp,
+    castleDamage: castleMult.damage,
+  };
+}
+
 export type UpgradeEffectType =
   | "hpMult"
   | "damageMult"

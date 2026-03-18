@@ -13,6 +13,10 @@ export interface BarrackConfig extends BuildingConfig {
   /** @deprecated Используйте warriorTypeIds. Один тип — для обратной совместимости. */
   warriorTypeId?: string;
   position: { x: number; y: number };
+  /** Дальняя атака по врагам в радиусе. */
+  attackRange?: number;
+  attackDamage?: number;
+  attackIntervalMs?: number;
   /**
    * Дефолтный маршрут для воинов барака.
    * Если задан, будет применён при инициализации игры.
@@ -72,18 +76,24 @@ const barrackDefaults: {
   radius: number;
   spawnIntervalMs: number;
   warriorTypeIds: string[];
+  attackRange: number;
+  attackDamage: number;
+  attackIntervalMs: number;
 } = {
-  maxHp: 334,
+  maxHp: 401, // +20%
   radius: 15,
   spawnIntervalMs: 15000,
   warriorTypeIds: ["basic", "archer"],
+  attackRange: 80,
+  attackDamage: 38,
+  attackIntervalMs: 600,
 };
 
 const towerDefaults = {
-  maxHp: 334,
+  maxHp: 401, // +20%
   radius: 8,
   attackRange: 80,
-  attackDamage: 15,
+  attackDamage: 38, // +20% +20
   attackIntervalMs: 600,
 } as const;
 
@@ -146,11 +156,11 @@ export const defaultGameConfig: GameConfig = {
       color: "#ef4444",
       castle: {
         id: "p1-castle",
-        maxHp: 835,
+        maxHp: 1002, // +20%
         radius: 20,
         position: { x: 500, y: 80 },
         attackRange: 120,
-        attackDamage: 10,
+        attackDamage: 32, // +20% +20
         attackIntervalMs: 720,
       },
       barracks: [
@@ -206,11 +216,11 @@ export const defaultGameConfig: GameConfig = {
       color: "#3b82f6",
       castle: {
         id: "p2-castle",
-        maxHp: 835,
+        maxHp: 1002, // +20%
         radius: 20,
         position: { x: 920, y: 480 },
         attackRange: 120,
-        attackDamage: 10,
+        attackDamage: 32, // +20% +20
         attackIntervalMs: 720,
       },
       barracks: [
@@ -267,11 +277,11 @@ export const defaultGameConfig: GameConfig = {
       color: "#22c55e",
       castle: {
         id: "p3-castle",
-        maxHp: 835,
+        maxHp: 1002, // +20%
         radius: 20,
         position: { x: 500, y: 920 },
         attackRange: 120,
-        attackDamage: 10,
+        attackDamage: 32, // +20% +20
         attackIntervalMs: 720,
       },
       barracks: [
@@ -328,11 +338,11 @@ export const defaultGameConfig: GameConfig = {
       color: "#a855f7",
       castle: {
         id: "p4-castle",
-        maxHp: 835,
+        maxHp: 1002, // +20%
         radius: 20,
         position: { x: 80, y: 480 },
         attackRange: 120,
-        attackDamage: 10,
+        attackDamage: 32, // +20% +20
         attackIntervalMs: 720,
       },
       barracks: [

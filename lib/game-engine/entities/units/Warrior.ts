@@ -47,6 +47,12 @@ export class Warrior extends Entity {
     this.applyMaxHpChange(newStats.maxHp);
   }
 
+  takeDamage(amount: number): void {
+    const reduction = this.stats.armor ?? 0;
+    const effective = Math.max(0, amount * (1 - reduction));
+    super.takeDamage(effective);
+  }
+
   update(deltaTimeMs: number): void {
     this.attackCooldownMs = Math.max(0, this.attackCooldownMs - deltaTimeMs);
   }

@@ -1,15 +1,16 @@
 import { Point } from "../utils/Point";
 import { Entity } from "../entities/Entity";
+import { Barrack } from "../entities/base/Barrack";
 import { Castle } from "../entities/base/Castle";
 import { Tower } from "../entities/base/Tower";
 import { Warrior } from "../entities/units/Warrior";
 
-function isAttacker(e: Entity): e is Castle | Tower {
-  return e.kind === "castle" || e.kind === "tower";
+function isAttacker(e: Entity): e is Castle | Tower | Barrack {
+  return e.kind === "castle" || e.kind === "tower" || e.kind === "barrack";
 }
 
 /**
- * Система атаки зданий: замки и башни стреляют по вражеским воинам в радиусе.
+ * Система атаки зданий: замки, башни и бараки стреляют по вражеским воинам в радиусе.
  */
 export class CombatSystem {
   update(

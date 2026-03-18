@@ -1,7 +1,13 @@
 import { GameConfig, type NeutralPointConfig } from "../config/defaultConfig";
 import { Entity, EntityId } from "../entities/Entity";
 import { Barrack } from "../entities/base/Barrack";
-import { Castle, CASTLE_SPELL, CASTLE_EXPLOSION_RADIUS } from "../entities/base/Castle";
+import {
+  Castle,
+  CASTLE_SPELL,
+  CASTLE_SPELL_1,
+  CASTLE_SPELL_2,
+  CASTLE_EXPLOSION_RADIUS,
+} from "../entities/base/Castle";
 import { Tower } from "../entities/base/Tower";
 import { Warrior } from "../entities/units/Warrior";
 import { Hero } from "../entities/units/Hero";
@@ -9,21 +15,39 @@ import { MovementSystem, type HeroUnderAttack } from "../pathfinding/MovementSys
 import { CombatSystem } from "../combat/CombatSystem";
 import { validateGameConfig } from "../config/ConfigValidator";
 import {
-  UPGRADE_DEFINITIONS,
-  BUILDING_UPGRADE_DEFINITIONS,
   BARACK_UPGRADE_DEFINITIONS,
-  applyUpgradesToStats,
-  getBuildingUpgradeMultipliers,
+  applyUpgradesToStatsFromLevels,
+  getBuildingUpgradeMultipliersFromLevels,
   getBarrackUpgradeMultipliers,
+  getCastleUpgradeCost,
+  getTrackUpgradeCost,
+  getMaxTrackLevel,
+  getMaxMagicLevel,
+  getCastleLevelMultipliers,
 } from "../upgrades/definitions";
 import { runAutoDevelopment } from "../ai/AutoDevelopment";
 import type { WarriorStats } from "../entities/units/WarriorTypes";
 import { NeutralPoint, type NeutralPointSnapshot } from "../entities/NeutralPoint";
 
+/** Треки улучшений замка (уровневая система). */
+export type CastleUpgradeTrack =
+  | "castle"
+  | "ranged"
+  | "melee"
+  | "buildingHp"
+  | "unitHp"
+  | "unitDefense"
+  | "magic";
+
 export interface PlayerState {
   gold: number;
-  upgradeIds: string[];
-  buildingUpgradeIds: string[];
+  castleLevel: number;
+  rangedLevel: number;
+  meleeLevel: number;
+  buildingHpLevel: number;
+  unitHpLevel: number;
+  unitDefenseLevel: number;
+  magicLevel: number;
 }
 
 export interface AttackEffect {
@@ -35,6 +59,9 @@ export interface AttackEffect {
 export interface SpellEffect {
   position: { x: number; y: number };
   radius: number;
+  /** Для прямоугольных заклинаний (Spell 1). */
+  rectWidth?: number;
+  rectHeight?: number;
   ownerId: string;
   timeMs: number;
 }
@@ -56,10 +83,11 @@ export interface EntitySnapshot {
   isAlive: boolean;
   /** Для воинов — базовый тип (basic, archer и т.д.) для визуального отличия. */
   baseWarriorTypeId?: string;
-  /** Для замка — мана и кулдаун заклинания. */
+  /** Для замка — мана и кулдауны заклинаний. */
   mana?: number;
   maxMana?: number;
-  spellCooldownMs?: number;
+  spell1CooldownMs?: number;
+  spell2CooldownMs?: number;
   /** Для героя — тип, уровень, золото за убийство. */
   isHero?: boolean;
   heroTypeId?: string;
@@ -146,7 +174,16 @@ export class Game {
    */
   private bootstrapFromConfig(config: GameConfig): void {
     for (const player of config.players) {
-      this.playerStates.set(player.id, { gold: 0, upgradeIds: [], buildingUpgradeIds: [] });
+      this.playerStates.set(player.id, {
+        gold: 0,
+        castleLevel: 0,
+        rangedLevel: 0,
+        meleeLevel: 0,
+        buildingHpLevel: 0,
+        unitHpLevel: 0,
+        unitDefenseLevel: 0,
+        magicLevel: 0,
+      });
 
       const castle = new Castle({
         id: player.castle.id,
@@ -183,6 +220,9 @@ export class Game {
             this.getEffectiveWarriorStats(ownerId, config.warriorTypes[typeId]),
           onSpawnWarrior: (warrior) => this.registerWarrior(warrior),
           canSpawn: () => this.spawningEnabled && this.playerHasAnyBuilding(player.id),
+          attackRange: barrackConfig.attackRange ?? 0,
+          attackDamage: barrackConfig.attackDamage ?? 0,
+          attackIntervalMs: barrackConfig.attackIntervalMs ?? 600,
         });
 
         if (barrackConfig.defaultRoute && barrackConfig.defaultRoute.length > 0) {
@@ -237,25 +277,6 @@ export class Game {
 
   private getHeroCooldown(barrackId: string, heroTypeId: string): number {
     return this.barrackHeroCooldowns.get(barrackId)?.get(heroTypeId) ?? 0;
-  }
-
-  private getMaxUpgradeLevel(
-    ownedIds: string[],
-    defs: { id: string; prerequisiteId?: string }[],
-  ): number {
-    let maxLevel = 0;
-    for (const id of ownedIds) {
-      const def = defs.find((d) => d.id === id);
-      if (!def) continue;
-      let level = 0;
-      let current: typeof def | undefined = def;
-      while (current?.prerequisiteId) {
-        level += 1;
-        current = defs.find((d) => d.id === current!.prerequisiteId);
-      }
-      maxLevel = Math.max(maxLevel, level);
-    }
-    return maxLevel;
   }
 
   /** Есть ли живой герой данного типа у игрока. */
@@ -468,11 +489,7 @@ export class Game {
   getStateSnapshot(): GameStateSnapshot {
     const playerStates: Record<string, PlayerState> = {};
     for (const [id, ps] of this.playerStates) {
-      playerStates[id] = {
-        gold: ps.gold,
-        upgradeIds: [...(ps.upgradeIds ?? [])],
-        buildingUpgradeIds: [...(ps.buildingUpgradeIds ?? [])],
-      };
+      playerStates[id] = { ...ps };
     }
     const barrackUpgrades: Record<string, string[]> = {};
     for (const [id, ids] of this.barrackUpgrades) {
@@ -529,7 +546,8 @@ export class Game {
       if (e instanceof Castle) {
         base.mana = e.mana;
         base.maxMana = CASTLE_SPELL.MANA_MAX;
-        base.spellCooldownMs = e.spellCooldownMs;
+        base.spell1CooldownMs = e.spell1CooldownMs;
+        base.spell2CooldownMs = e.spell2CooldownMs;
       }
       return base;
     });
@@ -553,39 +571,72 @@ export class Game {
   getEffectiveWarriorStats(playerId: string, baseStats: WarriorStats): WarriorStats {
     const ps = this.playerStates.get(playerId);
     if (!ps) return baseStats;
-    return applyUpgradesToStats(baseStats, ps.upgradeIds);
+    return applyUpgradesToStatsFromLevels(baseStats, ps);
   }
 
-  buyUpgrade(playerId: string, upgradeId: string): boolean {
+  buyCastleUpgrade(playerId: string, trackId: CastleUpgradeTrack): boolean {
     const ps = this.playerStates.get(playerId);
     if (!ps) return false;
 
-    const warriorDef = UPGRADE_DEFINITIONS.find((d) => d.id === upgradeId);
-    const buildingDef = BUILDING_UPGRADE_DEFINITIONS.find((d) => d.id === upgradeId);
-
-    if (warriorDef) {
-      if (ps.upgradeIds.includes(upgradeId)) return false;
-      if (warriorDef.prerequisiteId && !ps.upgradeIds.includes(warriorDef.prerequisiteId))
-        return false;
-      if (ps.gold < warriorDef.cost) return false;
-      ps.gold -= warriorDef.cost;
-      ps.upgradeIds.push(upgradeId);
-      this.applyUpgradesToExistingWarriors(playerId);
-      return true;
-    }
-
-    if (buildingDef) {
-      if (ps.buildingUpgradeIds.includes(upgradeId)) return false;
-      if (buildingDef.prerequisiteId && !ps.buildingUpgradeIds.includes(buildingDef.prerequisiteId))
-        return false;
-      if (ps.gold < buildingDef.cost) return false;
-      ps.gold -= buildingDef.cost;
-      ps.buildingUpgradeIds.push(upgradeId);
+    if (trackId === "castle") {
+      const cost = getCastleUpgradeCost(ps.castleLevel);
+      if (cost == null || ps.gold < cost) return false;
+      if (ps.castleLevel >= 3) return false;
+      ps.gold -= cost;
+      ps.castleLevel += 1;
       this.applyBuildingUpgradesToExisting(playerId);
       return true;
     }
 
-    return false;
+    const maxTrack = getMaxTrackLevel(ps.castleLevel);
+    const maxMagic = getMaxMagicLevel(ps.castleLevel);
+
+    const level =
+      trackId === "ranged"
+        ? ps.rangedLevel
+        : trackId === "melee"
+          ? ps.meleeLevel
+          : trackId === "buildingHp"
+            ? ps.buildingHpLevel
+            : trackId === "unitHp"
+              ? ps.unitHpLevel
+              : trackId === "unitDefense"
+                ? ps.unitDefenseLevel
+                : ps.magicLevel;
+    const maxLevel = trackId === "magic" ? maxMagic : maxTrack;
+    if (level >= maxLevel) return false;
+
+    const cost = getTrackUpgradeCost(level);
+    if (ps.gold < cost) return false;
+
+    ps.gold -= cost;
+    switch (trackId) {
+      case "ranged":
+        ps.rangedLevel = level + 1;
+        break;
+      case "melee":
+        ps.meleeLevel = level + 1;
+        break;
+      case "buildingHp":
+        ps.buildingHpLevel = level + 1;
+        break;
+      case "unitHp":
+        ps.unitHpLevel = level + 1;
+        break;
+      case "unitDefense":
+        ps.unitDefenseLevel = level + 1;
+        break;
+      case "magic":
+        ps.magicLevel = level + 1;
+        break;
+    }
+
+    if (trackId === "unitHp" || trackId === "unitDefense" || trackId === "ranged" || trackId === "melee") {
+      this.applyUpgradesToExistingWarriors(playerId);
+    } else {
+      this.applyBuildingUpgradesToExisting(playerId);
+    }
+    return true;
   }
 
   buyBarrackUpgrade(playerId: string, barrackId: string, upgradeId: string): boolean {
@@ -682,58 +733,141 @@ export class Game {
   }
 
   /**
-   * Заклинание замка: убивает вражеских воинов в радиусе базы.
-   * Тратит ману, имеет кулдаун.
+   * Заклинание замка.
+   * spellIndex 0: урон в прямоугольнике 100×100 (доступно с начала).
+   * spellIndex 1: убийство в радиусе (доступно с замка 2 лвл).
    */
-  castCastleSpell(playerId: string, castleId: string): boolean {
+  castCastleSpell(playerId: string, castleId: string, spellIndex: 0 | 1 = 0): boolean {
     const entity = this.entities.get(castleId);
     if (!entity || entity.kind !== "castle") return false;
     const castle = entity as Castle;
     if (castle.ownerId !== playerId || !castle.isAlive) return false;
-    if (castle.mana < CASTLE_SPELL.SPELL_COST) return false;
-    if (castle.spellCooldownMs > 0) return false;
 
-    castle.mana -= CASTLE_SPELL.SPELL_COST;
-    castle.spellCooldownMs = CASTLE_SPELL.SPELL_COOLDOWN_MS;
+    const ps = this.playerStates.get(playerId);
+    if (!ps) return false;
 
-    this.spellEffects.push({
-      position: { x: castle.position.x, y: castle.position.y },
-      radius: CASTLE_SPELL.SPELL_RADIUS,
-      ownerId: playerId,
-      timeMs: this.timeMs,
-    });
+    if (spellIndex === 0) {
+      if (castle.mana < CASTLE_SPELL_1.MANA_COST) return false;
+      if (castle.spell1CooldownMs > 0) return false;
 
-    const cx = castle.position.x;
-    const cy = castle.position.y;
-    const r2 = CASTLE_SPELL.SPELL_RADIUS * CASTLE_SPELL.SPELL_RADIUS;
+      castle.mana -= CASTLE_SPELL_1.MANA_COST;
+      castle.spell1CooldownMs = CASTLE_SPELL_1.COOLDOWN_MS;
 
-    for (const warrior of this.warriors.values()) {
-      if (!warrior.isAlive || warrior.ownerId === playerId) continue;
-      const dx = warrior.position.x - cx;
-      const dy = warrior.position.y - cy;
-      if (dx * dx + dy * dy <= r2) {
-        if (warrior instanceof Hero && this.spawningEnabled) {
-          this.heroProgress.set(`${warrior.ownerId}-${warrior.heroTypeId}`, {
-            level: warrior.level,
-            xp: warrior.xp,
-          });
-          this.setHeroCooldown(warrior.sourceBarrackId, warrior.heroTypeId);
+      const damage = CASTLE_SPELL_1.DAMAGE;
+      const halfW = CASTLE_SPELL_1.WIDTH / 2;
+      const halfH = CASTLE_SPELL_1.HEIGHT / 2;
+
+      // Выбираем цель: здание (барак или замок) с максимальным числом врагов в радиусе 100×100
+      let bestTarget = { x: castle.position.x, y: castle.position.y };
+      let bestEnemyCount = 0;
+      const buildingsToCheck: { x: number; y: number }[] = [{ x: castle.position.x, y: castle.position.y }];
+      for (const e of this.entities.values()) {
+        if (e.ownerId !== playerId || !e.isAlive) continue;
+        if (e.kind === "barrack") {
+          buildingsToCheck.push({ x: e.position.x, y: e.position.y });
         }
-        warrior.takeDamage(warrior.maxHp);
       }
+      for (const b of buildingsToCheck) {
+        const left = b.x - halfW;
+        const right = b.x + halfW;
+        const top = b.y - halfH;
+        const bottom = b.y + halfH;
+        let count = 0;
+        for (const warrior of this.warriors.values()) {
+          if (!warrior.isAlive || warrior.ownerId === playerId) continue;
+          const px = warrior.position.x;
+          const py = warrior.position.y;
+          if (px >= left && px <= right && py >= top && py <= bottom) count++;
+        }
+        if (count > bestEnemyCount) {
+          bestEnemyCount = count;
+          bestTarget = b;
+        }
+      }
+      const cx = bestTarget.x;
+      const cy = bestTarget.y;
+      const left = cx - halfW;
+      const right = cx + halfW;
+      const top = cy - halfH;
+      const bottom = cy + halfH;
+
+      this.spellEffects.push({
+        position: { x: cx, y: cy },
+        radius: 0,
+        rectWidth: CASTLE_SPELL_1.WIDTH,
+        rectHeight: CASTLE_SPELL_1.HEIGHT,
+        ownerId: playerId,
+        timeMs: this.timeMs,
+      });
+
+      for (const warrior of this.warriors.values()) {
+        if (!warrior.isAlive || warrior.ownerId === playerId) continue;
+        const px = warrior.position.x;
+        const py = warrior.position.y;
+        if (px >= left && px <= right && py >= top && py <= bottom) {
+          if (warrior instanceof Hero && this.spawningEnabled) {
+            this.heroProgress.set(`${warrior.ownerId}-${warrior.heroTypeId}`, {
+              level: warrior.level,
+              xp: warrior.xp,
+            });
+            this.setHeroCooldown(warrior.sourceBarrackId, warrior.heroTypeId);
+          }
+          warrior.takeDamage(damage);
+        }
+      }
+      return true;
     }
-    return true;
+
+    if (spellIndex === 1) {
+      if (ps.castleLevel < 2) return false;
+      if (castle.mana < CASTLE_SPELL_2.MANA_COST) return false;
+      if (castle.spell2CooldownMs > 0) return false;
+
+      castle.mana -= CASTLE_SPELL_2.MANA_COST;
+      castle.spell2CooldownMs = CASTLE_SPELL_2.COOLDOWN_MS;
+
+      this.spellEffects.push({
+        position: { x: castle.position.x, y: castle.position.y },
+        radius: CASTLE_SPELL_2.RADIUS,
+        ownerId: playerId,
+        timeMs: this.timeMs,
+      });
+
+      const cx = castle.position.x;
+      const cy = castle.position.y;
+      const r2 = CASTLE_SPELL_2.RADIUS * CASTLE_SPELL_2.RADIUS;
+
+      for (const warrior of this.warriors.values()) {
+        if (!warrior.isAlive || warrior.ownerId === playerId) continue;
+        const dx = warrior.position.x - cx;
+        const dy = warrior.position.y - cy;
+        if (dx * dx + dy * dy <= r2) {
+          if (warrior instanceof Hero && this.spawningEnabled) {
+            this.heroProgress.set(`${warrior.ownerId}-${warrior.heroTypeId}`, {
+              level: warrior.level,
+              xp: warrior.xp,
+            });
+            this.setHeroCooldown(warrior.sourceBarrackId, warrior.heroTypeId);
+          }
+          warrior.takeDamage(warrior.maxHp);
+        }
+      }
+      return true;
+    }
+
+    return false;
   }
 
   private applyBuildingUpgradesToExisting(playerId: string): void {
     const ps = this.playerStates.get(playerId);
     if (!ps) return;
-    const globalMult = getBuildingUpgradeMultipliers(ps.buildingUpgradeIds);
+    const globalMult = getBuildingUpgradeMultipliersFromLevels(ps);
 
     for (const entity of this.entities.values()) {
       if (entity.ownerId !== playerId || !entity.isAlive) continue;
       if (entity.kind === "castle") {
-        (entity as Castle).applyUpgrades(globalMult.buildingHp, globalMult.castleDamage);
+        const hpMult = globalMult.buildingHp * globalMult.castleHp;
+        (entity as Castle).applyUpgrades(hpMult, globalMult.castleDamage);
       } else if (entity.kind === "tower") {
         (entity as Tower).applyUpgrades(globalMult.buildingHp, globalMult.towerDamage);
       } else if (entity.kind === "barrack") {
@@ -755,7 +889,7 @@ export class Game {
     const ps = this.playerStates.get(barrack.ownerId);
     if (!ps) return;
 
-    const globalMult = getBuildingUpgradeMultipliers(ps.buildingUpgradeIds);
+    const globalMult = getBuildingUpgradeMultipliersFromLevels(ps);
     const barrackIds = this.barrackUpgrades.get(barrackId) ?? [];
     const barrackMult = getBarrackUpgradeMultipliers(barrackIds);
 
@@ -867,7 +1001,7 @@ export class Game {
       id,
       ownerId: playerId,
       position: { ...position },
-      maxHp: 334,
+      maxHp: 401,
       radius: 15,
       spawnIntervalMs: options?.spawnIntervalMs ?? 15000,
       warriorTypeIds,
@@ -875,6 +1009,9 @@ export class Game {
         this.getEffectiveWarriorStats(ownerId, this.config.warriorTypes[typeId]),
       onSpawnWarrior: (warrior) => this.registerWarrior(warrior),
       canSpawn: () => this.spawningEnabled && this.playerHasAnyBuilding(playerId),
+      attackRange: 80,
+      attackDamage: 38,
+      attackIntervalMs: 600,
     });
 
     this.addEntity(barrack);
@@ -904,10 +1041,10 @@ export class Game {
       id,
       ownerId: playerId,
       position: { ...position },
-      maxHp: 334,
+      maxHp: 401,
       radius: 8,
       attackRange: options?.attackRange ?? 80,
-      attackDamage: options?.attackDamage ?? 15,
+      attackDamage: options?.attackDamage ?? 38,
       attackIntervalMs: 600,
     });
 

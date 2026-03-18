@@ -51,11 +51,11 @@ export interface UseGameEngineResult {
   addTower: (playerId: string, position: { x: number; y: number }) => string | null;
   addNeutralPoint: (position: { x: number; y: number }, options?: Partial<StoredNeutralPoint>) => string | null;
   removeNeutralPoint: (id: string) => boolean;
-  buyUpgrade: (playerId: string, upgradeId: string) => boolean;
+  buyCastleUpgrade: (playerId: string, trackId: import("../core/Game").CastleUpgradeTrack) => boolean;
   buyBarrackUpgrade: (playerId: string, barrackId: string, upgradeId: string) => boolean;
   buyBarrackWarrior: (playerId: string, barrackId: string) => boolean;
   repairBarrack: (playerId: string, barrackId: string) => boolean;
-  castCastleSpell: (playerId: string, castleId: string) => boolean;
+  castCastleSpell: (playerId: string, castleId: string, spellIndex?: 0 | 1) => boolean;
   summonHero: (playerId: string, barrackId: string, heroTypeId: string) => boolean;
   setSpawningEnabled: (enabled: boolean) => void;
   setAutoDevelopmentEnabled: (enabled: boolean) => void;
@@ -351,21 +351,24 @@ export function useGameEngine(
     return ok;
   }, [mode]);
 
-  const buyUpgrade = useCallback((targetPlayerId: string, upgradeId: string): boolean => {
-    if (mode === "multiplayer") {
-      const pid = playerIdRef.current;
-      if (pid === targetPlayerId && socketRef.current) {
-        socketRef.current.emit("game:action", {
-          type: "buyUpgrade",
-          playerId: targetPlayerId,
-          upgradeId,
-        });
-        return true;
+  const buyCastleUpgrade = useCallback(
+    (targetPlayerId: string, trackId: import("../core/Game").CastleUpgradeTrack): boolean => {
+      if (mode === "multiplayer") {
+        const pid = playerIdRef.current;
+        if (pid === targetPlayerId && socketRef.current) {
+          socketRef.current.emit("game:action", {
+            type: "buyCastleUpgrade",
+            playerId: targetPlayerId,
+            trackId,
+          });
+          return true;
+        }
+        return false;
       }
-      return false;
-    }
-    return gameRef.current?.buyUpgrade(targetPlayerId, upgradeId) ?? false;
-  }, [mode]);
+      return gameRef.current?.buyCastleUpgrade(targetPlayerId, trackId) ?? false;
+    },
+    [mode],
+  );
 
   const buyBarrackUpgrade = useCallback(
     (targetPlayerId: string, barrackId: string, upgradeId: string): boolean => {
@@ -426,7 +429,7 @@ export function useGameEngine(
   );
 
   const castCastleSpell = useCallback(
-    (targetPlayerId: string, castleId: string): boolean => {
+    (targetPlayerId: string, castleId: string, spellIndex: 0 | 1 = 0): boolean => {
       if (mode === "multiplayer") {
         const pid = playerIdRef.current;
         if (pid === targetPlayerId && socketRef.current) {
@@ -434,12 +437,13 @@ export function useGameEngine(
             type: "castCastleSpell",
             playerId: targetPlayerId,
             castleId,
+            spellIndex,
           });
           return true;
         }
         return false;
       }
-      return gameRef.current?.castCastleSpell(targetPlayerId, castleId) ?? false;
+      return gameRef.current?.castCastleSpell(targetPlayerId, castleId, spellIndex) ?? false;
     },
     [mode],
   );
@@ -498,7 +502,7 @@ export function useGameEngine(
     addTower,
     addNeutralPoint,
     removeNeutralPoint,
-    buyUpgrade,
+    buyCastleUpgrade,
     buyBarrackUpgrade,
     buyBarrackWarrior,
     repairBarrack,

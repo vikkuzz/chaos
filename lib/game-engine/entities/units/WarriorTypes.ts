@@ -7,6 +7,8 @@ export interface WarriorStats {
   detectionRadius?: number;
   /** Интервал между атаками (мс). */
   attackIntervalMs?: number;
+  /** Снижение входящего урона (0–1). 0.1 = −10% урона. */
+  armor?: number;
 }
 
 export type WarriorTypeId = string;

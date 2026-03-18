@@ -126,7 +126,6 @@ export class CanvasRenderer implements Renderer {
 
       const expandProgress = Math.min(1, age / expandMs);
       const fade = 1 - (age / durationMs) * (age / durationMs);
-      const r = effect.radius * expandProgress;
       const alpha = 0.4 * fade;
 
       const color = this.playerColors.get(effect.ownerId) ?? "#8b5cf6";
@@ -139,10 +138,21 @@ export class CanvasRenderer implements Renderer {
       ctx.strokeStyle = `rgba(${rv}, ${gv}, ${bv}, ${alpha})`;
       ctx.fillStyle = `rgba(${rv}, ${gv}, ${bv}, ${alpha * 0.15})`;
       ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.arc(effect.position.x, effect.position.y, r, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.fill();
+
+      if (effect.rectWidth != null && effect.rectHeight != null) {
+        const w = effect.rectWidth * expandProgress;
+        const h = effect.rectHeight * expandProgress;
+        const x = effect.position.x - w / 2;
+        const y = effect.position.y - h / 2;
+        ctx.strokeRect(x, y, w, h);
+        ctx.fillRect(x, y, w, h);
+      } else {
+        const r = effect.radius * expandProgress;
+        ctx.beginPath();
+        ctx.arc(effect.position.x, effect.position.y, r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fill();
+      }
       ctx.restore();
     }
   }

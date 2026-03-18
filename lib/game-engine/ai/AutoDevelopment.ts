@@ -1,9 +1,11 @@
-import { Game, type GameStateSnapshot } from "../core/Game";
-import { CASTLE_SPELL } from "../entities/base/Castle";
+import { Game, type GameStateSnapshot, type CastleUpgradeTrack } from "../core/Game";
+import { CASTLE_SPELL_1, CASTLE_SPELL_2 } from "../entities/base/Castle";
 import {
-  UPGRADE_DEFINITIONS,
-  BUILDING_UPGRADE_DEFINITIONS,
   BARACK_UPGRADE_DEFINITIONS,
+  getCastleUpgradeCost,
+  getTrackUpgradeCost,
+  getMaxTrackLevel,
+  getMaxMagicLevel,
 } from "../upgrades/definitions";
 
 const TICK_INTERVAL_MS = 2500;
@@ -48,17 +50,14 @@ function barrackNeedsDefense(
   return hasEnemyNearby && !hasFriendlyNearby;
 }
 
-/**
- * Есть ли враги в радиусе заклинания замка (угроза базе).
- */
+/** Есть ли враги в радиусе заклинания 2 (150) вокруг замка. */
 function baseUnderThreat(
   castle: { id: string; ownerId: string; position: { x: number; y: number } },
   entities: readonly { kind: string; ownerId: string; position?: { x: number; y: number } }[],
 ): boolean {
   const cx = castle.position.x;
   const cy = castle.position.y;
-  const r2 = CASTLE_SPELL.SPELL_RADIUS * CASTLE_SPELL.SPELL_RADIUS;
-
+  const r2 = CASTLE_SPELL_2.RADIUS * CASTLE_SPELL_2.RADIUS;
   for (const e of entities) {
     if (!e.position || e.kind !== "warrior" || e.ownerId === castle.ownerId) continue;
     const dx = e.position.x - cx;
@@ -68,9 +67,35 @@ function baseUnderThreat(
   return false;
 }
 
+/** Есть ли враги в области 100×100 вокруг любого здания игрока (для заклинания 1). */
+function anyBuildingUnderThreatForSpell1(
+  playerId: string,
+  entities: readonly { kind: string; ownerId: string; position?: { x: number; y: number } }[],
+): boolean {
+  const halfW = CASTLE_SPELL_1.WIDTH / 2;
+  const halfH = CASTLE_SPELL_1.HEIGHT / 2;
+  for (const e of entities) {
+    if (!e.position || (e.kind !== "castle" && e.kind !== "barrack") || e.ownerId !== playerId) continue;
+    if (!(e as { isAlive?: boolean }).isAlive) continue;
+    const left = e.position.x - halfW;
+    const right = e.position.x + halfW;
+    const top = e.position.y - halfH;
+    const bottom = e.position.y + halfH;
+    for (const w of entities) {
+      if (!w.position || w.kind !== "warrior" || w.ownerId === playerId) continue;
+      if (!(w as { isAlive?: boolean }).isAlive) continue;
+      const px = w.position.x;
+      const py = w.position.y;
+      if (px >= left && px <= right && py >= top && py <= bottom) return true;
+    }
+  }
+  return false;
+}
+
 interface PurchaseOption {
-  type: "upgrade" | "buildingUpgrade" | "barrackUpgrade" | "defenseWarrior" | "repairBarrack" | "castSpell" | "summonHero";
+  type: "castleUpgrade" | "barrackUpgrade" | "defenseWarrior" | "repairBarrack" | "castSpell1" | "castSpell2" | "summonHero";
   cost: number;
+  trackId?: CastleUpgradeTrack;
   upgradeId?: string;
   barrackId?: string;
   castleId?: string;
@@ -103,7 +128,7 @@ export function runAutoDevelopment(
 
     const options: PurchaseOption[] = [];
 
-    // Приоритет 0: заклинание замка при угрозе базе (враги в радиусе заклинания)
+    // Приоритет 0: заклинание замка при угрозе базе
     for (const entity of snapshot.entities) {
       if (
         entity.kind !== "castle" ||
@@ -112,17 +137,19 @@ export function runAutoDevelopment(
       )
         continue;
       const mana = (entity as { mana?: number }).mana ?? 0;
-      const spellCooldownMs = (entity as { spellCooldownMs?: number }).spellCooldownMs ?? 0;
-      if (
-        baseUnderThreat(entity, snapshot.entities) &&
-        mana >= CASTLE_SPELL.SPELL_COST &&
-        spellCooldownMs <= 0
-      ) {
-        options.push({
-          type: "castSpell",
-          cost: 0,
-          castleId: entity.id,
-        });
+      const spell1Cd = (entity as { spell1CooldownMs?: number }).spell1CooldownMs ?? 0;
+      const spell2Cd = (entity as { spell2CooldownMs?: number }).spell2CooldownMs ?? 0;
+      const castleLevel = ps.castleLevel ?? 0;
+
+      if (anyBuildingUnderThreatForSpell1(playerId, snapshot.entities)) {
+        if (mana >= CASTLE_SPELL_1.MANA_COST && spell1Cd <= 0) {
+          options.push({ type: "castSpell1", cost: 0, castleId: entity.id });
+        }
+      }
+      if (baseUnderThreat(entity, snapshot.entities)) {
+        if (castleLevel >= 2 && mana >= CASTLE_SPELL_2.MANA_COST && spell2Cd <= 0) {
+          options.push({ type: "castSpell2", cost: 0, castleId: entity.id });
+        }
       }
     }
 
@@ -194,21 +221,31 @@ export function runAutoDevelopment(
       }
     }
 
-    // Глобальные улучшения воинов
-    for (const def of UPGRADE_DEFINITIONS) {
-      if (ps.upgradeIds.includes(def.id)) continue;
-      if (def.prerequisiteId && !ps.upgradeIds.includes(def.prerequisiteId)) continue;
-      if (ps.gold >= def.cost) {
-        options.push({ type: "upgrade", cost: def.cost, upgradeId: def.id });
-      }
-    }
+    // Улучшения замка (уровневая система)
+    const castleLevel = ps.castleLevel ?? 0;
+    const maxTrack = getMaxTrackLevel(castleLevel);
+    const maxMagic = getMaxMagicLevel(castleLevel);
 
-    // Глобальные улучшения зданий
-    for (const def of BUILDING_UPGRADE_DEFINITIONS) {
-      if (ps.buildingUpgradeIds.includes(def.id)) continue;
-      if (def.prerequisiteId && !ps.buildingUpgradeIds.includes(def.prerequisiteId)) continue;
-      if (ps.gold >= def.cost) {
-        options.push({ type: "buildingUpgrade", cost: def.cost, upgradeId: def.id });
+    const tracks: CastleUpgradeTrack[] = ["castle", "ranged", "melee", "buildingHp", "unitHp", "unitDefense", "magic"];
+    const getLevel = (t: CastleUpgradeTrack): number => {
+      switch (t) {
+        case "castle": return ps.castleLevel;
+        case "ranged": return ps.rangedLevel;
+        case "melee": return ps.meleeLevel;
+        case "buildingHp": return ps.buildingHpLevel;
+        case "unitHp": return ps.unitHpLevel;
+        case "unitDefense": return ps.unitDefenseLevel;
+        case "magic": return ps.magicLevel;
+        default: return 0;
+      }
+    };
+    for (const trackId of tracks) {
+      const level = getLevel(trackId);
+      const maxLevel = trackId === "castle" ? 3 : trackId === "magic" ? maxMagic : maxTrack;
+      if (level >= maxLevel) continue;
+      const cost = trackId === "castle" ? getCastleUpgradeCost(level) : getTrackUpgradeCost(level);
+      if (cost != null && ps.gold >= cost) {
+        options.push({ type: "castleUpgrade", cost, trackId });
       }
     }
 
@@ -235,8 +272,10 @@ export function runAutoDevelopment(
     if (options.length > 0) {
       options.sort((a, b) => a.cost - b.cost);
       const choice = options[0];
-      if (choice.type === "castSpell" && choice.castleId) {
-        game.castCastleSpell(playerId, choice.castleId);
+      if (choice.type === "castSpell1" && choice.castleId) {
+        game.castCastleSpell(playerId, choice.castleId, 0);
+      } else if (choice.type === "castSpell2" && choice.castleId) {
+        game.castCastleSpell(playerId, choice.castleId, 1);
       } else if (choice.type === "defenseWarrior" && choice.barrackId) {
         game.buyBarrackWarrior(playerId, choice.barrackId);
       } else if (choice.type === "summonHero" && choice.barrackId && choice.heroTypeId) {
@@ -245,8 +284,8 @@ export function runAutoDevelopment(
         game.repairBarrack(playerId, choice.barrackId);
       } else if (choice.type === "barrackUpgrade" && choice.barrackId && choice.upgradeId) {
         game.buyBarrackUpgrade(playerId, choice.barrackId, choice.upgradeId);
-      } else if (choice.upgradeId) {
-        game.buyUpgrade(playerId, choice.upgradeId);
+      } else if (choice.type === "castleUpgrade" && choice.trackId) {
+        game.buyCastleUpgrade(playerId, choice.trackId);
       }
     }
   }
