@@ -123,9 +123,6 @@ export class Game {
   /** Сохранённый прогресс героев после смерти: "playerId-heroTypeId" -> { level, xp }. */
   private readonly heroProgress = new Map<string, { level: number; xp: number }>();
 
-  private static readonly HERO_SUMMON_CASTLE_LEVEL = 2;
-  private static readonly HERO_SUMMON_BARRACK_LEVEL = 2;
-
   private static readonly GOLD_PER_SECOND_CASTLE = 3;
   private static readonly GOLD_PER_SECOND_BUILDING = 1;
   private readonly subscribers = new Set<Subscriber>();
@@ -594,17 +591,6 @@ export class Game {
     const heroTypes = this.config.heroTypes ?? {};
     const baseStats = heroTypes[heroTypeId];
     if (!baseStats) return false;
-
-    const castleLevel = this.getMaxUpgradeLevel(
-      ps.buildingUpgradeIds ?? [],
-      BUILDING_UPGRADE_DEFINITIONS,
-    );
-    const barrackLevel = this.getMaxUpgradeLevel(
-      this.barrackUpgrades.get(barrackId) ?? [],
-      BARACK_UPGRADE_DEFINITIONS,
-    );
-    if (castleLevel < Game.HERO_SUMMON_CASTLE_LEVEL) return false;
-    if (barrackLevel < Game.HERO_SUMMON_BARRACK_LEVEL) return false;
 
     if (ps.gold < Game.HERO_SUMMON_COST) return false;
     if (this.isHeroTypeAlive(playerId, heroTypeId)) return false;

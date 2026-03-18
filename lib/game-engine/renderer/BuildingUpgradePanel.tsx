@@ -14,9 +14,6 @@ import {
   type BarrackUpgradeDefinition,
 } from "../upgrades/definitions";
 
-const HERO_SUMMON_CASTLE_LEVEL = 2;
-const HERO_SUMMON_BARRACK_LEVEL = 2;
-
 function getMaxUpgradeLevel(
   ownedIds: string[],
   defs: { id: string; prerequisiteId?: string }[],
@@ -561,7 +558,7 @@ export function BuildingUpgradePanel({
                     touchFriendly ? "text-xs" : "text-[10px]"
                   }`}
                 >
-                  Герои (замок 2 лвл, барак 2 лвл)
+                  Герои
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {(["hero-1", "hero-2", "hero-3"] as const).map((heroTypeId) => {
@@ -569,26 +566,12 @@ export function BuildingUpgradePanel({
                     if (!baseStats) return null;
                     const heroAlive = aliveHeroTypeIds.has(heroTypeId);
                     const cooldownMs = barrackHeroCooldowns[heroTypeId] ?? 0;
-                    const castleLevel = getMaxUpgradeLevel(
-                      playerState?.buildingUpgradeIds ?? [],
-                      BUILDING_UPGRADE_DEFINITIONS,
-                    );
-                    const barrackLevel = getMaxUpgradeLevel(
-                      barrackUpgradeIds,
-                      BARACK_UPGRADE_DEFINITIONS,
-                    );
-                    const levelOk =
-                      castleLevel >= HERO_SUMMON_CASTLE_LEVEL &&
-                      barrackLevel >= HERO_SUMMON_BARRACK_LEVEL;
                     const canSummon =
                       !gameOver &&
-                      levelOk &&
                       !heroAlive &&
                       cooldownMs <= 0 &&
                       (playerState?.gold ?? 0) >= Game.HERO_SUMMON_COST;
-                    const reason = !levelOk
-                      ? `Замок ${castleLevel}/${HERO_SUMMON_CASTLE_LEVEL} лвл, барак ${barrackLevel}/${HERO_SUMMON_BARRACK_LEVEL} лвл`
-                      : heroAlive
+                    const reason = heroAlive
                         ? "Герой уже на поле"
                         : cooldownMs > 0
                           ? `Кулдаун ${Math.ceil(cooldownMs / 1000)} сек`
