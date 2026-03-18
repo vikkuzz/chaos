@@ -29,7 +29,8 @@ export class Barrack extends Entity {
   private readonly resolveStatsForType: (ownerId: string, typeId: WarriorTypeId) => WarriorStats;
   private readonly onSpawnWarrior: (warrior: Warrior) => void;
   private readonly canSpawn: () => boolean;
-  private spawnTimerMs = 0;
+  /** Таймер до следующего спавна. Инициализирован интервалом — первый спавн сразу. */
+  private spawnTimerMs: number;
 
   /** Лимит докупки воинов: текущее и макс. значение. Восстанавливается по таймауту. */
   private buyCapacityCurrent = 1;
@@ -57,6 +58,7 @@ export class Barrack extends Entity {
     this.routeManager = props.routeManager ?? new RouteManager();
     this.onSpawnWarrior = props.onSpawnWarrior;
     this.canSpawn = props.canSpawn ?? (() => true);
+    this.spawnTimerMs = props.spawnIntervalMs; // Первый спавн сразу, следующие — по интервалу
   }
 
   update(deltaTimeMs: number): void {
