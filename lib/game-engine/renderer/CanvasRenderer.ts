@@ -241,11 +241,13 @@ export class CanvasRenderer implements Renderer {
       const barWidth = entity.radius * 2;
       const barHeight = 3;
       const healthRatio = entity.hp / entity.maxHp;
+      const hpBarY = entity.position.y - entity.radius - 8;
+      const levelOffset = entity.isHero && entity.level !== undefined ? 12 : 0;
 
       ctx.fillStyle = "#000000";
       ctx.fillRect(
         entity.position.x - entity.radius,
-        entity.position.y - entity.radius - 8,
+        hpBarY - levelOffset,
         barWidth,
         barHeight,
       );
@@ -253,10 +255,24 @@ export class CanvasRenderer implements Renderer {
       ctx.fillStyle = "#00ff00";
       ctx.fillRect(
         entity.position.x - entity.radius,
-        entity.position.y - entity.radius - 8,
+        hpBarY - levelOffset,
         barWidth * healthRatio,
         barHeight,
       );
+    }
+
+    // Уровень над героем.
+    if (entity.isHero && entity.level !== undefined) {
+      ctx.font = "bold 9px sans-serif";
+      ctx.fillStyle = "#ffd700";
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 2;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const text = `Lv.${entity.level}`;
+      const levelY = entity.position.y - entity.radius - (entity.maxHp > 0 ? 18 : 8);
+      ctx.strokeText(text, entity.position.x, levelY);
+      ctx.fillText(text, entity.position.x, levelY);
     }
   }
 }

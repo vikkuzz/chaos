@@ -109,9 +109,9 @@ export const defaultGameConfig: GameConfig = {
   },
   heroTypes: {
     "hero-1": {
-      maxHp: 1000, // 20x базового воина (50)
+      maxHp: 1500, // 20x базового воина (50)
       speed: 75,
-      attackDamage: 15,
+      attackDamage: 20,
       attackRange: 14,
       detectionRadius: 85,
       attackIntervalMs: 380,
@@ -119,9 +119,9 @@ export const defaultGameConfig: GameConfig = {
       goldBounty: 25,
     },
     "hero-2": {
-      maxHp: 1000,
+      maxHp: 1500,
       speed: 80,
-      attackDamage: 20,
+      attackDamage: 24,
       attackRange: 12,
       detectionRadius: 90,
       attackIntervalMs: 350,
@@ -129,9 +129,9 @@ export const defaultGameConfig: GameConfig = {
       goldBounty: 25,
     },
     "hero-3": {
-      maxHp: 1000,
+      maxHp: 1500,
       speed: 65,
-      attackDamage: 12,
+      attackDamage: 16,
       attackRange: 15,
       detectionRadius: 80,
       attackIntervalMs: 450,
