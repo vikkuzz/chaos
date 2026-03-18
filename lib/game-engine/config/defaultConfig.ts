@@ -73,14 +73,14 @@ const barrackDefaults: {
   spawnIntervalMs: number;
   warriorTypeIds: string[];
 } = {
-  maxHp: 230,
+  maxHp: 253,
   radius: 15,
-  spawnIntervalMs: 2000,
+  spawnIntervalMs: 20000,
   warriorTypeIds: ["basic", "archer"],
 };
 
 const towerDefaults = {
-  maxHp: 230,
+  maxHp: 253,
   radius: 8,
   attackRange: 80,
   attackDamage: 15,
@@ -92,7 +92,7 @@ export const defaultGameConfig: GameConfig = {
   mapHeight: MAP_SIZE,
   warriorTypes: {
     basic: {
-      maxHp: 58,
+      maxHp: 64,
       speed: 80,
       attackDamage: 5,
       attackRange: 12,
@@ -100,7 +100,7 @@ export const defaultGameConfig: GameConfig = {
       attackIntervalMs: 480,
     },
     archer: {
-      maxHp: 40,
+      maxHp: 44,
       speed: 70,
       attackDamage: 4,
       attackRange: 45,
@@ -146,7 +146,7 @@ export const defaultGameConfig: GameConfig = {
       color: "#ef4444",
       castle: {
         id: "p1-castle",
-        maxHp: 575,
+        maxHp: 633,
         radius: 20,
         position: { x: 500, y: 80 },
         attackRange: 120,
@@ -206,7 +206,7 @@ export const defaultGameConfig: GameConfig = {
       color: "#3b82f6",
       castle: {
         id: "p2-castle",
-        maxHp: 575,
+        maxHp: 633,
         radius: 20,
         position: { x: 920, y: 480 },
         attackRange: 120,
@@ -267,7 +267,7 @@ export const defaultGameConfig: GameConfig = {
       color: "#22c55e",
       castle: {
         id: "p3-castle",
-        maxHp: 575,
+        maxHp: 633,
         radius: 20,
         position: { x: 500, y: 920 },
         attackRange: 120,
@@ -328,7 +328,7 @@ export const defaultGameConfig: GameConfig = {
       color: "#a855f7",
       castle: {
         id: "p4-castle",
-        maxHp: 575,
+        maxHp: 633,
         radius: 20,
         position: { x: 80, y: 480 },
         attackRange: 120,
