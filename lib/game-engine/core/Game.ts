@@ -199,6 +199,7 @@ export class Game {
           radius: towerConfig.radius,
           attackRange: towerConfig.attackRange,
           attackDamage: towerConfig.attackDamage,
+          attackIntervalMs: towerConfig.attackIntervalMs,
         });
         this.addEntity(tower);
       }
@@ -604,7 +605,7 @@ export class Game {
       id: `${barrackId}-hero-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       ownerId: playerId,
       position,
-      radius: 6,
+      radius: 9,
       stats: { ...baseStats },
       heroTypeId,
       sourceBarrackId: barrackId,
@@ -803,7 +804,7 @@ export class Game {
       id,
       ownerId: playerId,
       position: { ...position },
-      maxHp: 200,
+      maxHp: 230,
       radius: 15,
       spawnIntervalMs: options?.spawnIntervalMs ?? 2000,
       warriorTypeIds,
@@ -840,10 +841,11 @@ export class Game {
       id,
       ownerId: playerId,
       position: { ...position },
-      maxHp: 200,
+      maxHp: 230,
       radius: 8,
       attackRange: options?.attackRange ?? 80,
       attackDamage: options?.attackDamage ?? 15,
+      attackIntervalMs: 600,
     });
 
     this.addEntity(tower);

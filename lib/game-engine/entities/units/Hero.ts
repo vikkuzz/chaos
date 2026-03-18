@@ -43,7 +43,7 @@ export class Hero extends Warrior {
     this.heroTypeId = props.heroTypeId;
     this.sourceBarrackId = props.sourceBarrackId;
     this.baseStats = { ...props.stats };
-    this.radius = 6; // Герои крупнее воинов
+    this.radius = 9; // Герои крупнее воинов
     if (props.initialLevel !== undefined && props.initialLevel > 1) {
       this.level = Math.min(20, props.initialLevel);
       this.xp = props.initialXp ?? 0;
