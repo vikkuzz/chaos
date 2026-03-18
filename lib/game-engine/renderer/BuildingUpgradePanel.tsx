@@ -36,6 +36,8 @@ function getMaxUpgradeLevel(
 export interface BuildingUpgradePanelProps {
   entity: EntitySnapshot;
   config: GameConfig;
+  /** ID игрока под управлением юзера. Если здание чужое — только просмотр. */
+  currentPlayerId: string | null;
   playerState: PlayerState | undefined;
   barrackUpgradeIds: string[];
   barrackBuyCapacity?: BarrackBuyCapacity;
@@ -264,6 +266,7 @@ function getDefName(defs: UpgradeDef[], id: string): string | undefined {
 export function BuildingUpgradePanel({
   entity,
   config,
+  currentPlayerId,
   playerState,
   barrackUpgradeIds,
   barrackBuyCapacity,
@@ -286,6 +289,7 @@ export function BuildingUpgradePanel({
   const player = config.players.find((p) => p.id === entity.ownerId);
   const isCastle = entity.kind === "castle";
   const isBarrack = entity.kind === "barrack";
+  const isOwnBuilding = currentPlayerId != null && entity.ownerId === currentPlayerId;
 
   if (!isCastle && !isBarrack) return null;
 
@@ -373,13 +377,16 @@ export function BuildingUpgradePanel({
             ×
           </button>
         </div>
+        {!isOwnBuilding && (
+          <div className="text-[10px] text-slate-500 italic">Только просмотр</div>
+        )}
 
         {isCastle && entity.kind === "castle" && (
           <>
             <div className={`text-slate-500 ${touchFriendly ? "text-sm" : "text-[10px]"}`}>
               HP {entity.hp}/{entity.maxHp} · урон {(entity as { attackDamage?: number }).attackDamage ?? "—"}
             </div>
-            {onCastCastleSpell && (() => {
+            {isOwnBuilding && onCastCastleSpell && (() => {
               const manaRaw = (entity as { mana?: number }).mana ?? 0;
               const mana = Math.floor(manaRaw);
               const cooldownMs = (entity as { spellCooldownMs?: number }).spellCooldownMs ?? 0;
@@ -421,6 +428,8 @@ export function BuildingUpgradePanel({
                 </div>
               );
             })()}
+            {isOwnBuilding && (
+            <>
             <div
               className={`flex rounded-lg bg-slate-700 p-0.5 ${touchFriendly ? "min-h-[44px]" : ""}`}
               role="tablist"
@@ -478,6 +487,8 @@ export function BuildingUpgradePanel({
                 getPrereqName={(id) => getDefName(BUILDING_UPGRADE_DEFINITIONS, id)}
               />
             )}
+            </>
+            )}
           </>
         )}
 
@@ -486,7 +497,7 @@ export function BuildingUpgradePanel({
             <div className={`text-slate-500 ${touchFriendly ? "text-sm" : "text-[10px]"}`}>
               HP {entity.hp}/{entity.maxHp} · спавн {(entity as { spawnIntervalMs?: number }).spawnIntervalMs ?? "—"} мс
             </div>
-            {onRepairBarrack && (
+            {isOwnBuilding && onRepairBarrack && (
               <div
                 className={`flex items-center justify-between gap-2 rounded border border-slate-600 bg-slate-700/40 px-3 ${
                   touchFriendly ? "py-3 min-h-[44px]" : "py-2"
@@ -517,7 +528,7 @@ export function BuildingUpgradePanel({
                 </button>
               </div>
             )}
-            {onBuyBarrackWarrior && barrackBuyCapacity && (
+            {isOwnBuilding && onBuyBarrackWarrior && barrackBuyCapacity && (
               <div
                 className={`flex items-center justify-between gap-2 rounded border border-slate-600 bg-slate-700/40 px-3 ${
                   touchFriendly ? "py-3 min-h-[44px]" : "py-2"
@@ -551,7 +562,7 @@ export function BuildingUpgradePanel({
                 </button>
               </div>
             )}
-            {onSummonHero && config.heroTypes && Object.keys(config.heroTypes).length > 0 && (
+            {isOwnBuilding && onSummonHero && config.heroTypes && Object.keys(config.heroTypes).length > 0 && (
               <div>
                 <h4
                   className={`mb-2 font-medium uppercase tracking-wide text-slate-500 ${
@@ -606,6 +617,7 @@ export function BuildingUpgradePanel({
                 </div>
               </div>
             )}
+            {isOwnBuilding && (
             <div>
               <h4
                 className={`mb-2 font-medium uppercase tracking-wide text-slate-500 ${
@@ -624,6 +636,7 @@ export function BuildingUpgradePanel({
                 getPrereqName={(id) => getDefName(BARACK_UPGRADE_DEFINITIONS, id)}
               />
             </div>
+            )}
           </>
         )}
       </div>

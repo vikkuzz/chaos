@@ -69,17 +69,19 @@ function baseUnderThreat(
 }
 
 interface PurchaseOption {
-  type: "upgrade" | "buildingUpgrade" | "barrackUpgrade" | "defenseWarrior" | "repairBarrack" | "castSpell";
+  type: "upgrade" | "buildingUpgrade" | "barrackUpgrade" | "defenseWarrior" | "repairBarrack" | "castSpell" | "summonHero";
   cost: number;
   upgradeId?: string;
   barrackId?: string;
   castleId?: string;
+  heroTypeId?: string;
 }
 
 /**
  * Простой алгоритм авторазвития: периодически покупает самое дешёвое
  * доступное улучшение для каждого игрока. При угрозе бараку — докупает воина.
- * humanPlayerIds — игроки под управлением человека, для них авторазвитие отключено.
+ * humanPlayerIds — игроки под управлением человека.
+ * enabled — авторазвитие для человека (переключатель в UI). Боты всегда развиваются автоматически.
  */
 export function runAutoDevelopment(
   game: Game,
@@ -89,13 +91,13 @@ export function runAutoDevelopment(
   currentTimeMs: number,
   humanPlayerIds: Set<string> = new Set(),
 ): number {
-  if (!enabled) return lastTickTimeMs;
   if (currentTimeMs - lastTickTimeMs < TICK_INTERVAL_MS) return lastTickTimeMs;
 
   const buyWarriorCost = Game.BUY_WARRIOR_COST;
 
   for (const playerId of Object.keys(snapshot.playerStates)) {
-    if (humanPlayerIds.has(playerId)) continue;
+    // Пропускаем человека, только когда авторазвитие для него отключено
+    if (humanPlayerIds.has(playerId) && !enabled) continue;
     const ps = snapshot.playerStates[playerId];
     if (!ps) continue;
 
@@ -144,7 +146,36 @@ export function runAutoDevelopment(
       }
     }
 
-    // Приоритет 2: ремонт повреждённых бараков (бесплатно, откат 2 мин)
+    // Приоритет 2: вызов героя (если есть золото и герой не на поле)
+    const heroCost = Game.HERO_SUMMON_COST;
+    const heroTypes = game.config.heroTypes ?? {};
+    const heroTypeIds = Object.keys(heroTypes) as string[];
+    const aliveHeroTypeIds = new Set(
+      snapshot.entities
+        .filter((e) => e.kind === "warrior" && (e as { isHero?: boolean }).isHero && e.ownerId === playerId && e.isAlive)
+        .map((e) => (e as { heroTypeId?: string }).heroTypeId)
+        .filter((id): id is string => !!id),
+    );
+    const barrackHeroCooldowns = snapshot.barrackHeroCooldowns ?? {};
+    if (heroTypeIds.length > 0 && ps.gold >= heroCost) {
+      summonLoop: for (const entity of snapshot.entities) {
+        if (entity.kind !== "barrack" || entity.ownerId !== playerId || !entity.isAlive) continue;
+        for (const heroTypeId of heroTypeIds) {
+          if (aliveHeroTypeIds.has(heroTypeId)) continue;
+          const cooldowns = barrackHeroCooldowns[entity.id] ?? {};
+          if ((cooldowns[heroTypeId] ?? 0) > 0) continue;
+          options.push({
+            type: "summonHero",
+            cost: heroCost,
+            barrackId: entity.id,
+            heroTypeId,
+          });
+          break summonLoop; // Один вариант вызова героя за тик
+        }
+      }
+    }
+
+    // Приоритет 3: ремонт повреждённых бараков (бесплатно, откат 2 мин)
     const barrackRepairCooldown = snapshot.barrackRepairCooldownMs ?? {};
     for (const entity of snapshot.entities) {
       if (
@@ -210,6 +241,8 @@ export function runAutoDevelopment(
         game.castCastleSpell(playerId, choice.castleId);
       } else if (choice.type === "defenseWarrior" && choice.barrackId) {
         game.buyBarrackWarrior(playerId, choice.barrackId);
+      } else if (choice.type === "summonHero" && choice.barrackId && choice.heroTypeId) {
+        game.summonHero(playerId, choice.barrackId, choice.heroTypeId);
       } else if (choice.type === "repairBarrack" && choice.barrackId) {
         game.repairBarrack(playerId, choice.barrackId);
       } else if (choice.type === "barrackUpgrade" && choice.barrackId && choice.upgradeId) {

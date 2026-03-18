@@ -1265,6 +1265,7 @@ export function GameCanvas({
           <BuildingUpgradePanel
             entity={entity}
             config={config}
+            currentPlayerId={playerId ?? selectedPlayerId}
             playerState={playerState}
             barrackUpgradeIds={barrackUpgradeIds}
             barrackBuyCapacity={barrackBuyCapacity}

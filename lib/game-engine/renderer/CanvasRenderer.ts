@@ -237,17 +237,17 @@ export class CanvasRenderer implements Renderer {
     }
 
     // Полоска HP над сущностью.
+    const hpBarOffset = entity.isHero && entity.level !== undefined ? 14 : 8;
     if (entity.maxHp > 0) {
       const barWidth = entity.radius * 2;
       const barHeight = 3;
       const healthRatio = entity.hp / entity.maxHp;
-      const hpBarY = entity.position.y - entity.radius - 8;
-      const levelOffset = entity.isHero && entity.level !== undefined ? 12 : 0;
+      const hpBarY = entity.position.y - entity.radius - hpBarOffset;
 
       ctx.fillStyle = "#000000";
       ctx.fillRect(
         entity.position.x - entity.radius,
-        hpBarY - levelOffset,
+        hpBarY,
         barWidth,
         barHeight,
       );
@@ -255,13 +255,13 @@ export class CanvasRenderer implements Renderer {
       ctx.fillStyle = "#00ff00";
       ctx.fillRect(
         entity.position.x - entity.radius,
-        hpBarY - levelOffset,
+        hpBarY,
         barWidth * healthRatio,
         barHeight,
       );
     }
 
-    // Уровень над героем.
+    // Уровень над героем (выше полоски HP).
     if (entity.isHero && entity.level !== undefined) {
       ctx.font = "bold 9px sans-serif";
       ctx.fillStyle = "#ffd700";
@@ -270,7 +270,7 @@ export class CanvasRenderer implements Renderer {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       const text = `Lv.${entity.level}`;
-      const levelY = entity.position.y - entity.radius - (entity.maxHp > 0 ? 18 : 8);
+      const levelY = entity.position.y - entity.radius - (entity.maxHp > 0 ? 28 : 12);
       ctx.strokeText(text, entity.position.x, levelY);
       ctx.fillText(text, entity.position.x, levelY);
     }

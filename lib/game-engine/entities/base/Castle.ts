@@ -11,9 +11,12 @@ export const CASTLE_SPELL = {
   MANA_MAX: 100,
   MANA_REGEN_PER_SEC: 1.5,
   SPELL_COST: 50,
-  SPELL_RADIUS: 140,
+  SPELL_RADIUS: 150,
   SPELL_COOLDOWN_MS: 12000,
 } as const;
+
+/** Радиус взрыва при разрушении замка (область базы). */
+export const CASTLE_EXPLOSION_RADIUS = 180;
 
 /**
  * Главный замок игрока. Стреляет по вражеским воинам в радиусе.

@@ -163,7 +163,8 @@ export class Barrack extends Entity {
     const totalHp = Math.round(this.baseMaxHp * globalHpMult * barrackHpMult);
     this.applyMaxHpChange(totalHp);
     this.spawnIntervalMs = Math.round(this.baseSpawnIntervalMs * spawnSpeedMult);
-    this.spawnCount = Math.max(this.warriorTypeIds.length, Math.max(1, spawnCount));
+    // spawnCount: 1 = база, +1 за каждый extra-recruit. Итого воинов = база + (spawnCount - 1).
+    this.spawnCount = Math.max(1, this.warriorTypeIds.length + (spawnCount - 1));
     this.buyCapacityMax = this.spawnCount;
     if (this.buyCapacityCurrent > this.buyCapacityMax) {
       this.buyCapacityCurrent = this.buyCapacityMax;

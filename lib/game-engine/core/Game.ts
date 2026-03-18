@@ -1,7 +1,7 @@
 import { GameConfig, type NeutralPointConfig } from "../config/defaultConfig";
 import { Entity, EntityId } from "../entities/Entity";
 import { Barrack } from "../entities/base/Barrack";
-import { Castle, CASTLE_SPELL } from "../entities/base/Castle";
+import { Castle, CASTLE_SPELL, CASTLE_EXPLOSION_RADIUS } from "../entities/base/Castle";
 import { Tower } from "../entities/base/Tower";
 import { Warrior } from "../entities/units/Warrior";
 import { Hero } from "../entities/units/Hero";
@@ -380,8 +380,37 @@ export class Game {
       (killerId, victim) => onWarriorKilled?.(killerId, victim),
     );
 
-    // Удаляем мёртвые сущности. Бараки не удаляем — они продолжают спавнить в 2 раза медленнее.
+    // Удаляем мёртвые сущности. При разрушении замка — взрыв, убивающий всех в области базы.
     for (const [id, entity] of this.entities) {
+      if (!entity.isAlive && entity.kind === "castle") {
+        const cx = entity.position.x;
+        const cy = entity.position.y;
+        const r2 = CASTLE_EXPLOSION_RADIUS * CASTLE_EXPLOSION_RADIUS;
+        this.spellEffects.push({
+          position: { x: cx, y: cy },
+          radius: CASTLE_EXPLOSION_RADIUS,
+          ownerId: entity.ownerId,
+          timeMs: this.timeMs,
+        });
+        const castleOwnerId = entity.ownerId;
+        for (const warrior of this.warriors.values()) {
+          if (!warrior.isAlive || warrior.ownerId === castleOwnerId) continue;
+          const dx = warrior.position.x - cx;
+          const dy = warrior.position.y - cy;
+          if (dx * dx + dy * dy <= r2) {
+            if (warrior instanceof Hero && this.spawningEnabled) {
+              this.heroProgress.set(`${warrior.ownerId}-${warrior.heroTypeId}`, {
+                level: warrior.level,
+                xp: warrior.xp,
+              });
+              this.setHeroCooldown(warrior.sourceBarrackId, warrior.heroTypeId);
+            }
+            warrior.takeDamage(warrior.maxHp);
+          }
+        }
+        this.entities.delete(id);
+        continue;
+      }
       if (!entity.isAlive && entity.kind !== "barrack") {
         this.entities.delete(id);
         this.warriors.delete(id);
