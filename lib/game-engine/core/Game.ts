@@ -96,6 +96,10 @@ export interface EntitySnapshot {
   heroTypeId?: string;
   level?: number;
   goldBounty?: number;
+  /** Для барака — оставшееся мс до спавна, интервал, кол-во юнитов за цикл. */
+  spawnRemainingMs?: number;
+  spawnIntervalMs?: number;
+  spawnCount?: number;
 }
 
 export interface GameStateSnapshot {
@@ -363,11 +367,23 @@ export class Game {
             });
             this.setHeroCooldown(victim.sourceBarrackId, victim.heroTypeId);
           } else if (victim instanceof Barrack) {
-            ps.gold += Game.GOLD_BARRACK;
+            const bounty = Game.GOLD_BARRACK;
+            ps.gold += bounty;
+            const loserPs = this.playerStates.get(victim.ownerId);
+            if (loserPs && victim.ownerId !== killerOwnerId)
+              loserPs.gold += Math.floor(bounty / 2);
           } else if (victim instanceof Tower) {
-            ps.gold += Game.GOLD_TOWER;
+            const bounty = Game.GOLD_TOWER;
+            ps.gold += bounty;
+            const loserPs = this.playerStates.get(victim.ownerId);
+            if (loserPs && victim.ownerId !== killerOwnerId)
+              loserPs.gold += Math.floor(bounty / 2);
           } else if (victim instanceof Castle) {
-            ps.gold += Game.GOLD_CASTLE;
+            const bounty = Game.GOLD_CASTLE;
+            ps.gold += bounty;
+            const loserPs = this.playerStates.get(victim.ownerId);
+            if (loserPs && victim.ownerId !== killerOwnerId)
+              loserPs.gold += Math.floor(bounty / 2);
           } else {
             ps.gold += Game.GOLD_PER_WARRIOR_KILL;
           }
@@ -580,6 +596,11 @@ export class Game {
         base.maxMana = CASTLE_SPELL.MANA_MAX;
         base.spell1CooldownMs = e.spell1CooldownMs;
         base.spell2CooldownMs = e.spell2CooldownMs;
+      }
+      if (e instanceof Barrack) {
+        base.spawnRemainingMs = e.getRemainingSpawnMs();
+        base.spawnIntervalMs = e.spawnIntervalMs;
+        base.spawnCount = e.spawnCount;
       }
       return base;
     });

@@ -142,6 +142,7 @@ export function GameCanvas({
     null,
   );
   const [upgradePanelBuildingId, setUpgradePanelBuildingId] = useState<string | null>(null);
+  const [selectedNeutralPointId, setSelectedNeutralPointId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -427,12 +428,12 @@ export function GameCanvas({
     return best ? { id: best.id, ownerId: best.ownerId } : null;
   };
 
-  const findNeutralPointAt = (x: number, y: number): { id: string } | null => {
+  const findNeutralPointAt = (x: number, y: number) => {
     if (!state?.neutralPoints) return null;
     for (const pt of state.neutralPoints) {
       const dx = x - pt.position.x;
       const dy = y - pt.position.y;
-      if (Math.hypot(dx, dy) <= pt.radius + 8) return { id: pt.id };
+      if (Math.hypot(dx, dy) <= pt.radius + 8) return pt;
     }
     return null;
   };
@@ -504,6 +505,14 @@ export function GameCanvas({
           const entity = state.entities.find((e) => e.id === building.id);
           if (entity && (entity.kind === "castle" || entity.kind === "barrack")) {
             setUpgradePanelBuildingId(building.id);
+            setSelectedNeutralPointId(null);
+          }
+        } else {
+          const neutralPt = findNeutralPointAt(x, y);
+          if (neutralPt) {
+            setSelectedNeutralPointId(neutralPt.id);
+          } else {
+            setSelectedNeutralPointId(null);
           }
         }
         return;
@@ -516,6 +525,7 @@ export function GameCanvas({
           if (entity && (entity.kind === "castle" || entity.kind === "barrack")) {
             setUpgradePanelBuildingId(building.id);
             setSelectedPlayerId(building.ownerId);
+            setSelectedNeutralPointId(null);
           }
           return;
         }
@@ -551,12 +561,21 @@ export function GameCanvas({
           const neutralPt = findNeutralPointAt(x, y);
           if (neutralPt) {
             removeNeutralPoint(neutralPt.id);
+            setSelectedNeutralPointId(null);
           }
+          return;
+        }
+        const neutralPt = findNeutralPointAt(x, y);
+        if (neutralPt) {
+          setSelectedNeutralPointId(neutralPt.id);
           return;
         }
         if (building) {
           setSelectedPlayerId(building.ownerId);
           setSelectedBuildingId(building.id);
+          setSelectedNeutralPointId(null);
+        } else {
+          setSelectedNeutralPointId(null);
         }
         return;
       }
@@ -1324,9 +1343,70 @@ export function GameCanvas({
             onBuyBarrackWarrior={buyBarrackWarrior}
             onRepairBarrack={repairBarrack}
             onCastCastleSpell={castCastleSpell}
-            onClose={() => setUpgradePanelBuildingId(null)}
+            onClose={() => {
+              setUpgradePanelBuildingId(null);
+              setSelectedNeutralPointId(null);
+            }}
             gameOver={state.gameOver}
           />
+        );
+      })()}
+
+      {selectedNeutralPointId && state?.neutralPoints && (() => {
+        const pt = state.neutralPoints.find((p) => p.id === selectedNeutralPointId);
+        if (!pt) return null;
+        const rect = overlayCanvasRef.current?.getBoundingClientRect();
+        if (!rect) return null;
+        const vp = viewportRef.current;
+        let left: number;
+        let top: number;
+        if (vp && vp.width > 0 && vp.height > 0) {
+          const scale = Math.min(vp.width / vp.mapWidth, vp.height / vp.mapHeight) * vp.zoom;
+          left = rect.left + (pt.position.x - vp.panX) * scale;
+          top = rect.top + (pt.position.y - vp.panY) * scale - 90;
+        } else {
+          left = rect.left + (pt.position.x / config.mapWidth) * rect.width;
+          top = rect.top + (pt.position.y / config.mapHeight) * rect.height - 90;
+        }
+        left = Math.max(rect.left + 8, Math.min(rect.right - 220, left));
+        top = Math.max(rect.top + 8, top);
+        const goldPerSec = pt.goldIntervalMs > 0 ? (pt.goldPerInterval * 1000 / pt.goldIntervalMs).toFixed(1) : "0";
+        const ownerPlayer = config.players.find((p) => p.id === pt.ownerId);
+        return (
+          <div
+            className="absolute z-20 min-w-[200px] max-w-[260px] rounded-lg border border-slate-600 bg-slate-800/95 px-4 py-3 shadow-xl"
+            style={{ left, top }}
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="font-medium text-slate-200">Точка захвата</h3>
+              <button
+                type="button"
+                onClick={() => setSelectedNeutralPointId(null)}
+                className="rounded p-1 text-slate-400 hover:bg-slate-600 hover:text-slate-200"
+                aria-label="Закрыть"
+              >
+                ×
+              </button>
+            </div>
+            <div className="space-y-1 text-sm text-slate-400">
+              <div>
+                <span className="text-slate-500">Золото:</span>{" "}
+                <span className="text-amber-400">+{pt.goldPerInterval}</span> каждые {Math.round(pt.goldIntervalMs / 1000)} с
+                {" "}({goldPerSec}/с)
+              </div>
+              <div>
+                <span className="text-slate-500">Владелец:</span>{" "}
+                {pt.ownerId ? (
+                  <span style={{ color: ownerPlayer?.color ?? "#888" }}>{ownerPlayer?.id ?? pt.ownerId}</span>
+                ) : (
+                  <span className="text-slate-500">нейтральная</span>
+                )}
+              </div>
+              <div>
+                <span className="text-slate-500">Радиус захвата:</span> {pt.captureRadius}
+              </div>
+            </div>
+          </div>
         );
       })()}
 

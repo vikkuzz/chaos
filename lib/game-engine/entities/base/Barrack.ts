@@ -125,6 +125,12 @@ export class Barrack extends Entity {
     return this.repairCooldownMs;
   }
 
+  /** Оставшееся время (мс) до следующего спавна. */
+  getRemainingSpawnMs(): number {
+    const effective = this.isAlive ? this.spawnIntervalMs : this.spawnIntervalMs * 2;
+    return this.spawnTimerMs >= effective ? 0 : effective - this.spawnTimerMs;
+  }
+
   /** Радиус круга спавна — воины появляются по окружности вокруг барака. */
   private static readonly SPAWN_OFFSET_RADIUS = 8;
 

@@ -44,7 +44,7 @@ export class CanvasRenderer implements Renderer {
     this.canvas.height = height;
   }
 
-  render(state: GameStateSnapshot, viewport?: ViewportState | null): void {
+  render(state: GameStateSnapshot, viewport?: ViewportState | null, currentPlayerId?: string | null): void {
     const { ctx } = this;
     const w = this.canvas.width;
     const h = this.canvas.height;
@@ -66,7 +66,7 @@ export class CanvasRenderer implements Renderer {
 
     for (const entity of state.entities) {
       if (!entity.isAlive) continue;
-      this.drawEntity(entity);
+      this.drawEntity(entity, currentPlayerId);
     }
 
     this.drawAttackEffects(state.attackEffects ?? [], state.timeMs);
@@ -200,18 +200,28 @@ export class CanvasRenderer implements Renderer {
     ctx.restore();
   }
 
-  private drawEntity(entity: EntitySnapshot): void {
+  private drawEntity(entity: EntitySnapshot, currentPlayerId?: string | null): void {
     const { ctx } = this;
+    const isCurrentPlayerBuilding =
+      currentPlayerId &&
+      (entity.kind === "castle" || entity.kind === "barrack" || entity.kind === "tower") &&
+      entity.ownerId === currentPlayerId;
 
     switch (entity.kind) {
       case "castle":
-        ctx.fillStyle = "#ffffff";
+        ctx.fillStyle = isCurrentPlayerBuilding
+          ? (this.playerColors.get(entity.ownerId) ?? "#ffffff")
+          : "#ffffff";
         break;
       case "barrack":
-        ctx.fillStyle = "#cccccc";
+        ctx.fillStyle = isCurrentPlayerBuilding
+          ? (this.playerColors.get(entity.ownerId) ?? "#cccccc")
+          : "#cccccc";
         break;
       case "tower":
-        ctx.fillStyle = "#999999";
+        ctx.fillStyle = isCurrentPlayerBuilding
+          ? (this.playerColors.get(entity.ownerId) ?? "#999999")
+          : "#999999";
         break;
       case "warrior":
         ctx.fillStyle = this.playerColors.get(entity.ownerId) ?? "#ff0000";
@@ -262,6 +272,12 @@ export class CanvasRenderer implements Renderer {
       ctx.beginPath();
       ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fill();
+      if (isCurrentPlayerBuilding) {
+        const color = this.playerColors.get(entity.ownerId) ?? "#8b5cf6";
+        ctx.strokeStyle = this.hexToRgba(color, 0.9);
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+      }
     }
 
     // Полоска HP над сущностью.

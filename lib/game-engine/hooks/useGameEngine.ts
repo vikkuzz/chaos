@@ -94,7 +94,9 @@ export function useGameEngine(
   const socketRef = useRef<Socket | null>(null);
   const stateRef = useRef<GameStateSnapshot | null>(null);
   const playerIdRef = useRef<string | null>(null);
+  const currentPlayerIdRef = useRef<string | null>(null);
   playerIdRef.current = multiplayerPlayerId ?? playerId;
+  currentPlayerIdRef.current = mode === "multiplayer" ? multiplayerPlayerId ?? null : localHumanPlayerId ?? null;
 
   useEffect(() => {
     if (multiplayerGameState !== undefined) {
@@ -126,10 +128,10 @@ export function useGameEngine(
         if (st && canvas) {
           if (vp && vp.width > 0 && vp.height > 0) {
             renderer.resize(vp.width, vp.height);
-            renderer.render(st, vp);
+            renderer.render(st, vp, currentPlayerIdRef.current);
           } else {
             renderer.resize(config.mapWidth, config.mapHeight);
-            renderer.render(st);
+            renderer.render(st, undefined, currentPlayerIdRef.current);
           }
         }
         rafId = requestAnimationFrame(renderLoop);
@@ -212,10 +214,10 @@ export function useGameEngine(
       const vp = viewportRef?.current;
       if (vp && vp.width > 0 && vp.height > 0) {
         renderer.resize(vp.width, vp.height);
-        renderer.render(snapshot, vp);
+        renderer.render(snapshot, vp, currentPlayerIdRef.current);
       } else {
         renderer.resize(config.mapWidth, config.mapHeight);
-        renderer.render(snapshot);
+        renderer.render(snapshot, undefined, currentPlayerIdRef.current);
       }
       if (snapshot.gameOver) {
         loop.stop();

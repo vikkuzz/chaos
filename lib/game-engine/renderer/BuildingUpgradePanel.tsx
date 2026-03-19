@@ -467,7 +467,13 @@ export function BuildingUpgradePanel({
         {isBarrack && entity.kind === "barrack" && (
           <>
             <div className={`text-slate-500 ${touchFriendly ? "text-sm" : "text-[10px]"}`}>
-              HP {entity.hp}/{entity.maxHp} · спавн {(entity as { spawnIntervalMs?: number }).spawnIntervalMs ?? "—"} мс
+              HP {entity.hp}/{entity.maxHp}
+              {" · "}
+              {(entity as { spawnRemainingMs?: number }).spawnRemainingMs === 0
+                ? "Спавн..."
+                : `до спавна ${Math.ceil(((entity as { spawnRemainingMs?: number }).spawnRemainingMs ?? 0) / 1000)} с`}
+              {" · "}
+              {(entity as { spawnCount?: number }).spawnCount ?? "—"} юнитов за цикл
             </div>
             {isOwnBuilding && onRepairBarrack && (
               <div
