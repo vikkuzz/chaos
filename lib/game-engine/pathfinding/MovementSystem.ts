@@ -6,8 +6,11 @@ import { Point, type PointLike } from "../utils/Point";
 /** Радиус, в котором юниты переключаются на защиту героя. */
 const DEFEND_HERO_RADIUS = 120;
 
+/** Радиус «достигли waypoint»: не тянем всех в один пиксель, маршрут продолжается из кольца вокруг точки. */
+const WAYPOINT_ARRIVAL_RADIUS = 36;
+
 /** Минимальный зазор между окружностями юнитов после разделения (px). */
-const UNIT_SEPARATION_MARGIN = 2;
+const UNIT_SEPARATION_MARGIN = 0.5;
 /** Сколько раз за кадр разрешать наложения (соседи по цепочке). */
 const UNIT_SEPARATION_ITERATIONS = 4;
 
@@ -128,28 +131,31 @@ export class MovementSystem {
       const toTarget = target.sub(warrior.position);
       const distanceToTarget = toTarget.length();
 
-      if (distanceToTarget === 0) {
+      const advanceWaypoint = (): void => {
         const next = routeManager.getNextWaypoint(warrior.currentWaypointIndex);
         if (next === null) {
           warrior.takeDamage(warrior.maxHp);
         } else {
           warrior.currentWaypointIndex = next.index;
         }
+      };
+
+      const arrivalR = WAYPOINT_ARRIVAL_RADIUS;
+      // Плавающая точка + отталкивание после хода могут держать дистанцию чуть > R без конца.
+      if (distanceToTarget <= arrivalR + 1e-3) {
+        advanceWaypoint();
         continue;
       }
 
       const maxTravel = warrior.stats.speed * deltaSeconds;
+      const direction = toTarget.normalize();
+      const remainingOutsideRing = distanceToTarget - arrivalR;
 
-      if (maxTravel >= distanceToTarget) {
-        warrior.position = target.clone();
-        const next = routeManager.getNextWaypoint(warrior.currentWaypointIndex);
-        if (next === null) {
-          warrior.takeDamage(warrior.maxHp);
-        } else {
-          warrior.currentWaypointIndex = next.index;
-        }
+      if (maxTravel >= remainingOutsideRing) {
+        // Как раньше snap в центр за кадр — иначе separation каждый тик выталкивает с «обода» и waypoint не сдаётся.
+        warrior.position = target.sub(direction.scale(arrivalR));
+        advanceWaypoint();
       } else {
-        const direction = toTarget.normalize();
         warrior.position = warrior.position.add(direction.scale(maxTravel));
       }
     }
