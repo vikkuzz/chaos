@@ -105,6 +105,12 @@ export default function HomePage() {
             >
               Как играть
             </a>
+            <Link
+              href="/plans"
+              className="inline-flex items-center justify-center px-6 py-3 sm:px-8 sm:py-4 rounded-lg border border-slate-600 bg-slate-800/50 hover:bg-slate-700/50 text-slate-200 font-medium transition-colors min-h-[48px]"
+            >
+              Планы развития
+            </Link>
           </div>
         </div>
       </section>
@@ -382,7 +388,7 @@ export default function HomePage() {
           >
             RTS Game
           </Link>
-          <nav className="flex gap-6" aria-label="Ссылки в подвале">
+          <nav className="flex flex-wrap gap-4 sm:gap-6 justify-center" aria-label="Ссылки в подвале">
             <Link
               href="/"
               className="text-slate-300 hover:text-white transition-colors"
@@ -394,6 +400,12 @@ export default function HomePage() {
               className="text-slate-300 hover:text-white transition-colors"
             >
               Игра
+            </Link>
+            <Link
+              href="/plans"
+              className="text-slate-300 hover:text-white transition-colors"
+            >
+              Планы
             </Link>
             {hasSupportUrl ? (
               <a

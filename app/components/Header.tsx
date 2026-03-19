@@ -7,6 +7,7 @@ import { useState } from "react";
 const navItems = [
   { href: "/", label: "Главная" },
   { href: "/game", label: "Игра" },
+  { href: "/plans", label: "Планы" },
 ];
 
 export function Header() {
