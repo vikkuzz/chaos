@@ -1303,6 +1303,11 @@ export function GameCanvas({
         />
         </div>
       </div>
+
+      <div className="md:hidden flex-shrink-0 rounded-lg bg-slate-800/90 px-3 py-2 text-xs text-slate-400 space-y-1">
+        <p><strong className="text-slate-300">Как играть:</strong> Нажмите на замок или барак — откроется панель улучшений. Два пальца — зум, один — движение карты.</p>
+        <p>Золото копится со зданий. Покупайте улучшения в замке и бараках. Воины идут по маршруту и атакуют врагов.</p>
+      </div>
       </div>
 
       {upgradePanelBuildingId && state && (() => {
