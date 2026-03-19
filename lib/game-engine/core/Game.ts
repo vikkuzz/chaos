@@ -318,6 +318,16 @@ export class Game {
     return false;
   }
 
+  /** Есть ли у игрока хотя бы один живой замок. Улучшения замка покупаются только в живом замке. */
+  playerHasLivingCastle(playerId: string): boolean {
+    for (const entity of this.entities.values()) {
+      if (entity.ownerId === playerId && entity.isAlive && entity.kind === "castle") {
+        return true;
+      }
+    }
+    return false;
+  }
+
 
   /**
    * Шаг симуляции (фиксированная дельта, вызывается из GameLoop).
@@ -630,6 +640,7 @@ export class Game {
   buyCastleUpgrade(playerId: string, trackId: CastleUpgradeTrack): boolean {
     const ps = this.playerStates.get(playerId);
     if (!ps || !this.playerHasAnyBuilding(playerId)) return false;
+    if (!this.playerHasLivingCastle(playerId)) return false;
 
     if (trackId === "castle") {
       const cost = getCastleUpgradeCost(ps.castleLevel);
@@ -695,7 +706,7 @@ export class Game {
   buyBarrackUpgrade(playerId: string, barrackId: string): boolean {
     const barrack = this.barracks.get(barrackId);
     const ps = this.playerStates.get(playerId);
-    if (!barrack || !ps || barrack.ownerId !== playerId || !this.playerHasAnyBuilding(playerId)) return false;
+    if (!barrack || !ps || barrack.ownerId !== playerId || !barrack.isAlive || !this.playerHasAnyBuilding(playerId)) return false;
 
     const level = this.barrackLevels.get(barrackId) ?? 0;
     if (level >= BARRACK_MAX_LEVEL) return false;

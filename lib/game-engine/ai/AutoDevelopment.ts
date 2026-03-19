@@ -237,7 +237,10 @@ export function runAutoDevelopment(
       }
     }
 
-    // Улучшения замка (уровневая система)
+    // Улучшения замка (уровневая система) — только если есть живой замок
+    const hasLivingCastle = snapshot.entities.some(
+      (e) => e.ownerId === playerId && e.isAlive && e.kind === "castle",
+    );
     const maxTrack = getMaxTrackLevel(castleLevel);
     const maxMagic = getMaxMagicLevel(castleLevel);
 
@@ -255,6 +258,7 @@ export function runAutoDevelopment(
       }
     };
     for (const trackId of tracks) {
+      if (!hasLivingCastle) continue;
       const level = getLevel(trackId);
       const maxLevel = trackId === "castle" ? 3 : trackId === "magic" ? maxMagic : maxTrack;
       if (level >= maxLevel) continue;
