@@ -1,10 +1,33 @@
 import "./globals.css";
 import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
+import { Header } from "./components/Header";
 
 export const metadata: Metadata = {
-  title: "RTS Game",
-  description: "Multiplayer RTS prototype",
+  title: {
+    default: "RTS Game — стратегия в реальном времени",
+    template: "%s | RTS Game",
+  },
+  description:
+    "Браузерная RTS-игра: 4 игрока, замки, бараки, башни, герои и нейтральные точки. Локальная симуляция и мультиплеер. Играйте бесплатно.",
+  keywords: [
+    "RTS",
+    "стратегия",
+    "игра в браузере",
+    "многопользовательская игра",
+    "тактическая игра",
+  ],
+  openGraph: {
+    title: "RTS Game — стратегия в реальном времени",
+    description:
+      "Браузерная RTS-игра: 4 игрока, замки, бараки, башни, герои. Локальная симуляция и мультиплеер.",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "RTS Game — стратегия в реальном времени",
+    description: "Браузерная RTS-игра: 4 игрока, замки, бараки, башни, герои.",
+  },
 };
 
 export const viewport: Viewport = {
@@ -16,8 +39,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body className="bg-slate-900 text-slate-100">{children}</body>
+    <html lang="ru">
+      <body className="bg-slate-900 text-slate-100">
+        <Header />
+        {children}
+      </body>
     </html>
   );
 }
