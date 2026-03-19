@@ -1114,7 +1114,7 @@ export function GameCanvas({
             </label>
           </div>
         )}
-        {isMobile && state && (() => {
+        {state && (() => {
           const currentPlayerId = playerId ?? selectedPlayerId;
           const ps = currentPlayerId ? state.playerStates[currentPlayerId] : null;
           if (!ps) return null;
