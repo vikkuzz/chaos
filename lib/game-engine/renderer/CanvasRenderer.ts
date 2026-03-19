@@ -59,13 +59,14 @@ export class CanvasRenderer implements Renderer {
       ctx.setTransform(scale, 0, 0, scale, -viewport.panX * scale, -viewport.panY * scale);
     }
 
+    // Нейтральные точки рисуем первыми (под юнитами), полупрозрачные
+    for (const pt of state.neutralPoints ?? []) {
+      this.drawNeutralPoint(pt);
+    }
+
     for (const entity of state.entities) {
       if (!entity.isAlive) continue;
       this.drawEntity(entity);
-    }
-
-    for (const pt of state.neutralPoints ?? []) {
-      this.drawNeutralPoint(pt);
     }
 
     this.drawAttackEffects(state.attackEffects ?? [], state.timeMs);
@@ -161,25 +162,42 @@ export class CanvasRenderer implements Renderer {
     // Пока специальных ресурсов нет.
   }
 
-  private drawNeutralPoint(pt: { position: { x: number; y: number }; radius: number; ownerId: string | null }): void {
+  private hexToRgba(hex: string, alpha: number): string {
+    const rgb = hex.startsWith("#") ? hex.slice(1) : hex;
+    const r = parseInt(rgb.slice(0, 2), 16);
+    const g = parseInt(rgb.slice(2, 4), 16);
+    const b = parseInt(rgb.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  private drawNeutralPoint(pt: { position: { x: number; y: number }; radius: number; captureRadius?: number; ownerId: string | null }): void {
     const { ctx } = this;
     const { x, y } = pt.position;
     const r = pt.radius;
+    const captureR = pt.captureRadius ?? r * 0.6;
 
-    ctx.fillStyle = pt.ownerId
+    const baseColor = pt.ownerId
       ? this.playerColors.get(pt.ownerId) ?? "#888888"
       : "#6b7280";
-    ctx.strokeStyle = pt.ownerId ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.3)";
+
+    ctx.save();
+    ctx.fillStyle = this.hexToRgba(baseColor, 0.18);
+    ctx.strokeStyle = this.hexToRgba(baseColor, 0.45);
     ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 6]);
 
     ctx.beginPath();
-    ctx.moveTo(x, y - r);
-    ctx.lineTo(x + r, y);
-    ctx.lineTo(x, y + r);
-    ctx.lineTo(x - r, y);
-    ctx.closePath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
+
+    ctx.setLineDash([]);
+    ctx.strokeStyle = this.hexToRgba(baseColor, 0.25);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(x, y, captureR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
   }
 
   private drawEntity(entity: EntitySnapshot): void {

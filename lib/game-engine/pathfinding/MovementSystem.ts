@@ -25,7 +25,6 @@ export class MovementSystem {
     deltaTimeMs: number,
     onWarriorKilled?: (killerOwnerId: string, victim?: Entity) => void,
     onWarriorAttack?: (from: PointLike, to: PointLike) => void,
-    onHeroKill?: (hero: Hero, victim: Entity) => void,
     heroUnderAttackRef?: { current: HeroUnderAttack | null },
     currentTimeMs?: number,
   ): void {
@@ -89,11 +88,8 @@ export class MovementSystem {
           const wasWarrior = nearestEnemy.kind === "warrior";
           const wasAlive = nearestEnemy.isAlive;
           nearestEnemy.takeDamage(warrior.stats.attackDamage);
-          if (wasWarrior && wasAlive && !nearestEnemy.isAlive) {
+          if (wasAlive && !nearestEnemy.isAlive) {
             onWarriorKilled?.(warrior.ownerId, nearestEnemy);
-            if (warrior.isHero && warrior instanceof Hero) {
-              onHeroKill?.(warrior, nearestEnemy);
-            }
           }
           if (nearestEnemy instanceof Hero && nearestEnemy.ownerId !== warrior.ownerId) {
             heroUnderAttackRef && currentTimeMs !== undefined && (heroUnderAttackRef.current = {

@@ -140,8 +140,14 @@ export class Game {
   private readonly spellEffects: SpellEffect[] = [];
   private static readonly ATTACK_EFFECT_DURATION_MS = 180;
   private static readonly SPELL_EFFECT_DURATION_MS = 800;
-  private static readonly GOLD_PER_WARRIOR_KILL = 5;
-  private static readonly GOLD_PER_HERO_KILL = 25;
+  private static readonly GOLD_PER_WARRIOR_KILL = 10;
+  private static readonly GOLD_BARRACK = 500;
+  private static readonly GOLD_TOWER = 300;
+  private static readonly GOLD_CASTLE = 600;
+  /** Радиус, в котором герои союзников получают XP при убийстве юнита. */
+  private static readonly XP_ASSIST_RADIUS = 150;
+  private static readonly XP_PER_WARRIOR_KILL = 10;
+  private static readonly XP_PER_HERO_KILL = 150;
   static readonly BUY_WARRIOR_COST = 30;
   static readonly HERO_SUMMON_COST = 1000;
   private static readonly HERO_RESPAWN_COOLDOWN_MS = 180000; // 3 минуты
@@ -158,6 +164,8 @@ export class Game {
 
   private static readonly GOLD_PER_SECOND_CASTLE = 3;
   private static readonly GOLD_PER_SECOND_BUILDING = 1;
+  /** Бонус инкома за каждый уровень прокачки стен (прочность зданий). */
+  private static readonly GOLD_PER_SECOND_PER_BUILDING_HP_LEVEL = 1.2;
   private readonly subscribers = new Set<Subscriber>();
 
   private autoDevelopmentEnabled = true;
@@ -290,8 +298,8 @@ export class Game {
     return false;
   }
 
-  /** Проверяет, есть ли у игрока хотя бы одно живое здание (замок, барак, башня). */
-  private playerHasAnyBuilding(playerId: string): boolean {
+  /** Проверяет, есть ли у игрока хотя бы одно живое здание (замок, барак, башня). Без зданий — проиграл. */
+  playerHasAnyBuilding(playerId: string): boolean {
     for (const entity of this.entities.values()) {
       if (
         entity.ownerId === playerId &&
@@ -304,15 +312,17 @@ export class Game {
     return false;
   }
 
+
   /**
    * Шаг симуляции (фиксированная дельта, вызывается из GameLoop).
    */
   update(deltaTimeMs: number): void {
     this.timeMs += deltaTimeMs;
 
-    // Накопление золота — только в режиме теста.
+    // Накопление золота — только в режиме теста. Без зданий игрок проиграл, золото не копится.
     if (this.spawningEnabled) {
       for (const [playerId, ps] of this.playerStates) {
+        if (!this.playerHasAnyBuilding(playerId)) continue;
         let income = 0;
         for (const entity of this.entities.values()) {
           if (entity.ownerId !== playerId || !entity.isAlive) continue;
@@ -320,6 +330,8 @@ export class Game {
           else if (entity.kind === "barrack" || entity.kind === "tower")
             income += Game.GOLD_PER_SECOND_BUILDING;
         }
+        const buildingHpLevel = ps.buildingHpLevel ?? 0;
+        income += buildingHpLevel * Game.GOLD_PER_SECOND_PER_BUILDING_HP_LEVEL;
         ps.gold += (income * deltaTimeMs) / 1000;
       }
     }
@@ -340,7 +352,7 @@ export class Game {
     const onWarriorKilled = this.spawningEnabled
       ? (killerOwnerId: string, victim?: Entity) => {
           const ps = this.playerStates.get(killerOwnerId);
-          if (!ps) return;
+          if (!ps || !victim || !this.playerHasAnyBuilding(killerOwnerId)) return;
           if (victim instanceof Hero) {
             ps.gold += victim.goldBounty;
             this.heroProgress.set(`${victim.ownerId}-${victim.heroTypeId}`, {
@@ -348,20 +360,24 @@ export class Game {
               xp: victim.xp,
             });
             this.setHeroCooldown(victim.sourceBarrackId, victim.heroTypeId);
+          } else if (victim instanceof Barrack) {
+            ps.gold += Game.GOLD_BARRACK;
+          } else if (victim instanceof Tower) {
+            ps.gold += Game.GOLD_TOWER;
+          } else if (victim instanceof Castle) {
+            ps.gold += Game.GOLD_CASTLE;
           } else {
             ps.gold += Game.GOLD_PER_WARRIOR_KILL;
           }
-        }
-      : undefined;
-
-    const XP_PER_WARRIOR_KILL = 10;
-    const XP_PER_HERO_KILL = 50;
-    const onHeroKill = this.spawningEnabled
-      ? (hero: Hero, victim: Entity) => {
-          if (victim instanceof Hero) {
-            hero.gainXp(XP_PER_HERO_KILL);
-          } else {
-            hero.gainXp(XP_PER_WARRIOR_KILL);
+          // XP героям союзников рядом с местом убийства (в т.ч. убийство своими юнитами)
+          if (victim.kind === "warrior") {
+            const xpAmount = victim instanceof Hero ? Game.XP_PER_HERO_KILL : Game.XP_PER_WARRIOR_KILL;
+            const victimPos = victim.position;
+            for (const w of this.warriors.values()) {
+              if (!w.isAlive || w.ownerId !== killerOwnerId || !(w instanceof Hero)) continue;
+              const dist = w.position.distanceTo(victimPos);
+              if (dist <= Game.XP_ASSIST_RADIUS) (w as Hero).gainXp(xpAmount);
+            }
           }
         }
       : undefined;
@@ -383,7 +399,6 @@ export class Game {
       (from, to) => {
         this.attackEffects.push({ from: { x: from.x, y: from.y }, to: { x: to.x, y: to.y }, timeMs: this.timeMs });
       },
-      onHeroKill,
       this.heroUnderAttackRef,
       this.timeMs,
     );
@@ -398,7 +413,7 @@ export class Game {
       }
       for (const pt of this.neutralPoints.values()) {
         const result = pt.update(deltaTimeMs);
-        if (result) {
+        if (result && this.playerHasAnyBuilding(result.playerId)) {
           const ps = this.playerStates.get(result.playerId);
           if (ps) ps.gold += result.gold;
         }
@@ -577,7 +592,7 @@ export class Game {
 
   buyCastleUpgrade(playerId: string, trackId: CastleUpgradeTrack): boolean {
     const ps = this.playerStates.get(playerId);
-    if (!ps) return false;
+    if (!ps || !this.playerHasAnyBuilding(playerId)) return false;
 
     if (trackId === "castle") {
       const cost = getCastleUpgradeCost(ps.castleLevel);
@@ -643,7 +658,7 @@ export class Game {
   buyBarrackUpgrade(playerId: string, barrackId: string): boolean {
     const barrack = this.barracks.get(barrackId);
     const ps = this.playerStates.get(playerId);
-    if (!barrack || !ps || barrack.ownerId !== playerId) return false;
+    if (!barrack || !ps || barrack.ownerId !== playerId || !this.playerHasAnyBuilding(playerId)) return false;
 
     const level = this.barrackLevels.get(barrackId) ?? 0;
     if (level >= BARRACK_MAX_LEVEL) return false;
@@ -664,7 +679,7 @@ export class Game {
   buyBarrackWarrior(playerId: string, barrackId: string): boolean {
     const barrack = this.barracks.get(barrackId);
     const ps = this.playerStates.get(playerId);
-    if (!barrack || !ps || barrack.ownerId !== playerId || !barrack.isAlive) return false;
+    if (!barrack || !ps || barrack.ownerId !== playerId || !barrack.isAlive || !this.playerHasAnyBuilding(playerId)) return false;
     if (ps.gold < Game.BUY_WARRIOR_COST) return false;
     if (!barrack.consumeBuyCapacity()) return false;
 
@@ -677,7 +692,7 @@ export class Game {
   canSummonHero(playerId: string, barrackId: string, heroTypeId: string): boolean {
     const barrack = this.barracks.get(barrackId);
     const ps = this.playerStates.get(playerId);
-    if (!barrack || !ps || barrack.ownerId !== playerId || !barrack.isAlive) return false;
+    if (!barrack || !ps || barrack.ownerId !== playerId || !barrack.isAlive || !this.playerHasAnyBuilding(playerId)) return false;
     const heroTypes = this.config.heroTypes ?? {};
     if (!heroTypes[heroTypeId]) return false;
     if (ps.gold < Game.HERO_SUMMON_COST) return false;
@@ -693,7 +708,7 @@ export class Game {
   summonHero(playerId: string, barrackId: string, heroTypeId: string): boolean {
     const barrack = this.barracks.get(barrackId);
     const ps = this.playerStates.get(playerId);
-    if (!barrack || !ps || barrack.ownerId !== playerId || !barrack.isAlive) return false;
+    if (!barrack || !ps || barrack.ownerId !== playerId || !barrack.isAlive || !this.playerHasAnyBuilding(playerId)) return false;
 
     const heroTypes = this.config.heroTypes ?? {};
     const baseStats = heroTypes[heroTypeId];

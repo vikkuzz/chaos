@@ -24,7 +24,7 @@ export const CASTLE_SPELL_1 = {
 /** Заклинание 2: убийство в радиусе. Доступно с замка 2 лвл. */
 export const CASTLE_SPELL_2 = {
   MANA_COST: 50,
-  COOLDOWN_MS: 12000,
+  COOLDOWN_MS: 60000, // 1 минута
   RADIUS: 150,
 } as const;
 

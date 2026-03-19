@@ -47,7 +47,7 @@ export function getBarrackLevelMultipliers(level: number): {
   const hp = 1 + 0.15 * level;
   const attack = 1 + 0.15 * level;
   const spawnSpeed = Math.pow(0.9, level);
-  const baseSpawn = 2;
+  const baseSpawn = 5; // 3 воина + 2 лучника за цикл
   const spawnCount = baseSpawn + level;
   const buyCapacity = baseSpawn + level;
   return { hp, attack, spawnSpeed, spawnCount, buyCapacity };

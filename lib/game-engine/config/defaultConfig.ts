@@ -83,7 +83,7 @@ const barrackDefaults: {
   maxHp: 401, // +20%
   radius: 15,
   spawnIntervalMs: 15000,
-  warriorTypeIds: ["basic", "archer"],
+  warriorTypeIds: ["basic", "basic", "basic", "archer", "archer"],
   attackRange: 80,
   attackDamage: 38,
   attackIntervalMs: 600,
@@ -127,7 +127,7 @@ export const defaultGameConfig: GameConfig = {
       detectionRadius: 85,
       attackIntervalMs: 380,
       hpRegenPerSec: 2,
-      goldBounty: 25,
+      goldBounty: 300,
     },
     "hero-2": {
       maxHp: 1500,
@@ -137,7 +137,7 @@ export const defaultGameConfig: GameConfig = {
       detectionRadius: 90,
       attackIntervalMs: 350,
       hpRegenPerSec: 1.5,
-      goldBounty: 25,
+      goldBounty: 300,
     },
     "hero-3": {
       maxHp: 1500,
@@ -147,7 +147,7 @@ export const defaultGameConfig: GameConfig = {
       detectionRadius: 80,
       attackIntervalMs: 450,
       hpRegenPerSec: 3,
-      goldBounty: 25,
+      goldBounty: 300,
     },
   },
   players: [

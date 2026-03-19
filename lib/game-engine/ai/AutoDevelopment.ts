@@ -15,6 +15,12 @@ const TICK_INTERVAL_MS = 2500;
 const THREAT_RADIUS = 150;
 /** Радиус, в котором дружественные воины считаются защищающими барак. */
 const DEFENSE_RADIUS = 100;
+/** Минимальный уровень замка для вызова героя (чтобы ИИ сначала прокачивал базу). */
+const AI_HERO_MIN_CASTLE_LEVEL = 1;
+/** Золотой резерв: герой вызывается только при gold >= heroCost + AI_HERO_GOLD_RESERVE. */
+const AI_HERO_GOLD_RESERVE = 300;
+/** Вероятность (0..1) пропустить вызов героя в тик, чтобы ИИ чаще вкладывался в базу. */
+const AI_HERO_SKIP_PROBABILITY = 0.3;
 
 function dist(ax: number, ay: number, bx: number, by: number): number {
   return Math.hypot(bx - ax, by - ay);
@@ -124,6 +130,7 @@ export function runAutoDevelopment(
   for (const playerId of Object.keys(snapshot.playerStates)) {
     // Пропускаем человека только когда авторазвитие для него отключено
     if (humanPlayerIds.has(playerId) && !enabled) continue;
+    if (!game.playerHasAnyBuilding(playerId)) continue; // Без зданий — не тратим
     const ps = snapshot.playerStates[playerId];
     if (!ps) continue;
 
@@ -174,7 +181,7 @@ export function runAutoDevelopment(
       }
     }
 
-    // Приоритет 2: вызов героя (если есть золото и герой не на поле)
+    // Приоритет 2: вызов героя (только при прокачанном замке, с резервом золота и не каждый тик)
     const heroCost = Game.HERO_SUMMON_COST;
     const heroTypes = game.config.heroTypes ?? {};
     const heroTypeIds = Object.keys(heroTypes) as string[];
@@ -184,7 +191,15 @@ export function runAutoDevelopment(
         .map((e) => (e as { heroTypeId?: string }).heroTypeId)
         .filter((id): id is string => !!id),
     );
-    if (heroTypeIds.length > 0 && ps.gold >= heroCost) {
+    const castleLevel = ps.castleLevel ?? 0;
+    const canAffordHeroWithReserve = ps.gold >= heroCost + AI_HERO_GOLD_RESERVE;
+    const heroAllowedByChance = Math.random() > AI_HERO_SKIP_PROBABILITY;
+    if (
+      heroTypeIds.length > 0 &&
+      castleLevel >= AI_HERO_MIN_CASTLE_LEVEL &&
+      canAffordHeroWithReserve &&
+      heroAllowedByChance
+    ) {
       summonLoop: for (const entity of snapshot.entities) {
         if (entity.kind !== "barrack" || entity.ownerId !== playerId || !entity.isAlive) continue;
         for (const heroTypeId of heroTypeIds) {
@@ -223,7 +238,6 @@ export function runAutoDevelopment(
     }
 
     // Улучшения замка (уровневая система)
-    const castleLevel = ps.castleLevel ?? 0;
     const maxTrack = getMaxTrackLevel(castleLevel);
     const maxMagic = getMaxMagicLevel(castleLevel);
 
