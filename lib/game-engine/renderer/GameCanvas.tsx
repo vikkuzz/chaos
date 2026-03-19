@@ -1143,9 +1143,43 @@ export function GameCanvas({
         )}
 
         {effectiveMode === "test" && (
-          <span className="text-slate-500">
-            Симуляция. Клик по замку или бараку — улучшения.
-          </span>
+          <>
+            <span className="text-slate-500">
+              Симуляция. Клик по замку или бараку — улучшения.
+            </span>
+            <label className="flex cursor-pointer items-center gap-2 text-xs sm:text-sm text-slate-200">
+              <input
+                type="checkbox"
+                checked={autoDevelopmentEnabled}
+                onChange={toggleAutoDevelopment}
+                className="h-4 w-4 rounded border-slate-600 bg-slate-700 text-amber-500 focus:ring-amber-500"
+              />
+              <span>Авторазвитие</span>
+            </label>
+            {state && (() => {
+              const currentPlayerId = playerId ?? selectedPlayerId;
+              const ps = currentPlayerId ? state.playerStates[currentPlayerId] : null;
+              if (!ps) return null;
+              const player = config.players.find((p) => p.id === currentPlayerId);
+              return (
+                <div
+                  className="flex items-center gap-1.5 rounded-full bg-slate-700/80 px-2.5 py-1.5 ring-1 ring-slate-600/60"
+                  style={player ? { borderLeft: `3px solid ${player.color}` } : undefined}
+                  aria-label={`Золото: ${Math.floor(ps.gold)}, инком ${(ps.goldPerSecond ?? 0).toFixed(1)}/с`}
+                >
+                  <span className="text-sm leading-none">🪙</span>
+                  <span className="font-semibold tabular-nums text-amber-400 text-sm min-w-[2.5rem]">
+                    {Math.floor(ps.gold)}
+                  </span>
+                  {(ps.goldPerSecond ?? 0) > 0 && (
+                    <span className="tabular-nums text-slate-400 text-xs">
+                      +{(ps.goldPerSecond ?? 0).toFixed(1)}/с
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
+          </>
         )}
 
         {effectiveMode === "buildings" && (
@@ -1249,48 +1283,49 @@ export function GameCanvas({
       </div>
       )}
 
+      {!isDev && effectiveMode === "test" && (
+        <div className="flex flex-shrink-0 flex-wrap items-center gap-2 sm:gap-3 rounded-lg bg-slate-800/90 px-2 sm:px-3 py-2 text-xs sm:text-sm min-h-[3rem] sm:min-h-[3.5rem]">
+          <label className="flex cursor-pointer items-center gap-2 text-slate-200">
+            <input
+              type="checkbox"
+              checked={autoDevelopmentEnabled}
+              onChange={toggleAutoDevelopment}
+              className="h-4 w-4 rounded border-slate-600 bg-slate-700 text-amber-500 focus:ring-amber-500"
+            />
+            <span>Авторазвитие</span>
+          </label>
+          {state && (() => {
+            const currentPlayerId = playerId ?? selectedPlayerId;
+            const ps = currentPlayerId ? state.playerStates[currentPlayerId] : null;
+            if (!ps) return null;
+            const player = config.players.find((p) => p.id === currentPlayerId);
+            return (
+              <div
+                className="flex items-center gap-1.5 rounded-full bg-slate-700/80 px-2.5 py-1.5 ring-1 ring-slate-600/60"
+                style={player ? { borderLeft: `3px solid ${player.color}` } : undefined}
+                aria-label={`Золото: ${Math.floor(ps.gold)}, инком ${(ps.goldPerSecond ?? 0).toFixed(1)}/с`}
+              >
+                <span className="text-sm leading-none">🪙</span>
+                <span className="font-semibold tabular-nums text-amber-400 text-sm min-w-[2.5rem]">
+                  {Math.floor(ps.gold)}
+                </span>
+                {(ps.goldPerSecond ?? 0) > 0 && (
+                  <span className="tabular-nums text-slate-400 text-xs">
+                    +{(ps.goldPerSecond ?? 0).toFixed(1)}/с
+                  </span>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
       <div className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden">
         <div
           ref={viewportContainerRef}
           className="relative shrink-0 w-full h-full min-h-0"
           style={{ aspectRatio: "1", maxWidth: "100%", maxHeight: "100%" }}
         >
-        {effectiveMode === "test" && (
-          <div className="absolute top-2 left-2 z-10 rounded-lg bg-slate-800/90 px-2 py-1.5 shadow-lg md:top-3 md:left-3">
-            <label className="flex cursor-pointer items-center gap-2 text-xs sm:text-sm text-slate-200">
-              <input
-                type="checkbox"
-                checked={autoDevelopmentEnabled}
-                onChange={toggleAutoDevelopment}
-                className="h-4 w-4 rounded border-slate-600 bg-slate-700 text-amber-500 focus:ring-amber-500"
-              />
-              <span>Авторазвитие</span>
-            </label>
-          </div>
-        )}
-        {state && (() => {
-          const currentPlayerId = playerId ?? selectedPlayerId;
-          const ps = currentPlayerId ? state.playerStates[currentPlayerId] : null;
-          if (!ps) return null;
-          const player = config.players.find((p) => p.id === currentPlayerId);
-          return (
-            <div
-              className="absolute top-2 right-2 z-10 flex items-center gap-1.5 rounded-full bg-slate-900/90 px-3 py-2 shadow-lg ring-1 ring-slate-600/60"
-              style={player ? { borderLeft: `3px solid ${player.color}` } : undefined}
-              aria-label={`Золото: ${Math.floor(ps.gold)}, инком ${(ps.goldPerSecond ?? 0).toFixed(1)}/с`}
-            >
-              <span className="text-base leading-none">🪙</span>
-              <span className="font-semibold tabular-nums text-amber-400 text-sm min-w-[2.5rem]">
-                {Math.floor(ps.gold)}
-              </span>
-              {(ps.goldPerSecond ?? 0) > 0 && (
-                <span className="tabular-nums text-slate-400 text-xs">
-                  +{(ps.goldPerSecond ?? 0).toFixed(1)}/с
-                </span>
-              )}
-            </div>
-          );
-        })()}
         <div className="absolute bottom-2 right-2 z-10 flex flex-col gap-1 rounded-lg bg-slate-800/90 p-1 shadow-lg md:bottom-3 md:right-3">
           <button
             type="button"
