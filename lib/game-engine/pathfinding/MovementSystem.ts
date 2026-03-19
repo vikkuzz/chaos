@@ -6,6 +6,11 @@ import { Point, type PointLike } from "../utils/Point";
 /** Радиус, в котором юниты переключаются на защиту героя. */
 const DEFEND_HERO_RADIUS = 120;
 
+/** Минимальный зазор между окружностями юнитов после разделения (px). */
+const UNIT_SEPARATION_MARGIN = 2;
+/** Сколько раз за кадр разрешать наложения (соседи по цепочке). */
+const UNIT_SEPARATION_ITERATIONS = 4;
+
 export interface HeroUnderAttack {
   attacker: Warrior;
   heroOwnerId: string;
@@ -30,8 +35,10 @@ export class MovementSystem {
   ): void {
     const deltaSeconds = deltaTimeMs / 1000;
     const entitiesList = Array.from(allEntities.values());
+    // Map.values() — одноразовый итератор: нельзя сначала for..of, потом снова тот же iterable.
+    const warriorList = Array.from(warriors);
 
-    for (const warrior of warriors) {
+    for (const warrior of warriorList) {
       if (!warrior.isAlive) continue;
 
       const detectionRadius = warrior.stats.detectionRadius ?? 80;
@@ -144,6 +151,52 @@ export class MovementSystem {
       } else {
         const direction = toTarget.normalize();
         warrior.position = warrior.position.add(direction.scale(maxTravel));
+      }
+    }
+
+    this.applyWarriorSeparation(warriorList);
+  }
+
+  /**
+   * Мягкое раздвижение всех воинов, если круги пересекаются (в т.ч. враги).
+   * Раньше только союзники — из‑за этого при столкновении армий MARGIN «не работал» визуально.
+   */
+  private applyWarriorSeparation(warriors: Iterable<Warrior>): void {
+    const list = Array.from(warriors).filter((w) => w.isAlive);
+    if (list.length < 2) return;
+
+    for (let iter = 0; iter < UNIT_SEPARATION_ITERATIONS; iter++) {
+      for (let i = 0; i < list.length; i++) {
+        for (let j = i + 1; j < list.length; j++) {
+          const a = list[i];
+          const b = list[j];
+          if (!a.isAlive || !b.isAlive) continue;
+
+          const minDist = a.radius + b.radius + UNIT_SEPARATION_MARGIN;
+          const dx = b.position.x - a.position.x;
+          const dy = b.position.y - a.position.y;
+          let dist = Math.hypot(dx, dy);
+
+          if (dist >= minDist) continue;
+
+          let nx: number;
+          let ny: number;
+          if (dist < 1e-6) {
+            const t = (i * 7 + j * 13) * 0.618033988749895;
+            nx = Math.cos(t);
+            ny = Math.sin(t);
+          } else {
+            nx = dx / dist;
+            ny = dy / dist;
+          }
+
+          const overlap = dist < 1e-6 ? minDist : minDist - dist;
+          const half = overlap / 2;
+          a.position.x -= nx * half;
+          a.position.y -= ny * half;
+          b.position.x += nx * half;
+          b.position.y += ny * half;
+        }
       }
     }
   }
