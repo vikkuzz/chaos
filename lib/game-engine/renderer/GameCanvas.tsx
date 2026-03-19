@@ -79,9 +79,15 @@ export function GameCanvas({
   const panZoomRef = useRef({ pan: { x: 0, y: 0 }, zoom: 1 });
   panZoomRef.current = { pan, zoom };
   const isPanningRef = useRef(false);
-  const lastPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
+  const lastPointerRef = useRef<{ clientX: number; clientY: number } | null>(
+    null,
+  );
   const pointerDownTimeRef = useRef<number>(0);
-  const lastPinchRef = useRef<{ dist: number; pan: { x: number; y: number }; center: { x: number; y: number } } | null>(null);
+  const lastPinchRef = useRef<{
+    dist: number;
+    pan: { x: number; y: number };
+    center: { x: number; y: number };
+  } | null>(null);
 
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(
     () => config.players[0]?.id ?? null,
@@ -91,22 +97,45 @@ export function GameCanvas({
   );
 
   const [fogOfWarEnabled, setFogOfWarEnabledState] = useState(true);
-  const { state, playerId, setBarrackRoute, setBuildingPosition, addBarrack, addTower, addNeutralPoint, removeNeutralPoint, buyCastleUpgrade, buyBarrackUpgrade, buyBarrackWarrior, repairBarrack, castCastleSpell, summonHero, setSpawningEnabled, setAutoDevelopmentEnabled, setFogOfWarEnabled } =
-    useGameEngine(baseCanvasRef, config, viewportRef, {
-      mode,
-      socketUrl,
-      multiplayerSocket,
-      multiplayerPlayerId,
-      multiplayerGameState,
-      localHumanPlayerId: mode === "local" ? selectedPlayerId : undefined,
-      fogOfWarEnabled,
-    });
+  const {
+    state,
+    playerId,
+    setBarrackRoute,
+    setBuildingPosition,
+    addBarrack,
+    addTower,
+    addNeutralPoint,
+    removeNeutralPoint,
+    buyCastleUpgrade,
+    buyBarrackUpgrade,
+    buyBarrackWarrior,
+    repairBarrack,
+    castCastleSpell,
+    summonHero,
+    setSpawningEnabled,
+    setAutoDevelopmentEnabled,
+    setFogOfWarEnabled,
+  } = useGameEngine(baseCanvasRef, config, viewportRef, {
+    mode,
+    socketUrl,
+    multiplayerSocket,
+    multiplayerPlayerId,
+    multiplayerGameState,
+    localHumanPlayerId: mode === "local" ? selectedPlayerId : undefined,
+    fogOfWarEnabled,
+  });
 
   const defaultPlayer = config.players[0];
   const defaultBarrack = defaultPlayer?.barracks[0];
 
   type EditorMode = "routes" | "buildings" | "test";
-  type BuildingAction = "move" | "upgrade" | "addBarrack" | "addTower" | "addNeutralPoint" | "removeNeutralPoint";
+  type BuildingAction =
+    | "move"
+    | "upgrade"
+    | "addBarrack"
+    | "addTower"
+    | "addNeutralPoint"
+    | "removeNeutralPoint";
 
   const [editorMode, setEditorMode] = useState<EditorMode>("test");
   const effectiveMode = isDev ? editorMode : ("test" as EditorMode);
@@ -145,8 +174,12 @@ export function GameCanvas({
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(
     null,
   );
-  const [upgradePanelBuildingId, setUpgradePanelBuildingId] = useState<string | null>(null);
-  const [selectedNeutralPointId, setSelectedNeutralPointId] = useState<string | null>(null);
+  const [upgradePanelBuildingId, setUpgradePanelBuildingId] = useState<
+    string | null
+  >(null);
+  const [selectedNeutralPointId, setSelectedNeutralPointId] = useState<
+    string | null
+  >(null);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -168,7 +201,8 @@ export function GameCanvas({
     Record<string, { x: number; y: number }>
   >({});
   const [gridSnapEnabled, setGridSnapEnabled] = useState(true);
-  const [autoDevelopmentEnabled, setAutoDevelopmentEnabledState] = useState(true);
+  const [autoDevelopmentEnabled, setAutoDevelopmentEnabledState] =
+    useState(true);
 
   const BUILDINGS_STORAGE_KEY = "rts-buildings";
   const HERO_NAMES_STORAGE_KEY = "rts-hero-names";
@@ -195,7 +229,10 @@ export function GameCanvas({
     try {
       const raw = window.localStorage.getItem(HERO_NAMES_STORAGE_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw) as Record<string, Record<string, string>>;
+        const parsed = JSON.parse(raw) as Record<
+          string,
+          Record<string, string>
+        >;
         if (parsed && typeof parsed === "object") return parsed;
       }
     } catch {
@@ -214,7 +251,10 @@ export function GameCanvas({
       setShowHeroNamesModal(false);
       try {
         window.localStorage.setItem("rts-hero-names-modal-dismissed", "1");
-        window.localStorage.setItem(HERO_NAMES_STORAGE_KEY, JSON.stringify(next));
+        window.localStorage.setItem(
+          HERO_NAMES_STORAGE_KEY,
+          JSON.stringify(next),
+        );
       } catch {
         // ignore
       }
@@ -225,7 +265,11 @@ export function GameCanvas({
   useEffect(() => {
     if (showHeroNamesModal && selectedPlayerId) {
       const existing = heroNamesByPlayer[selectedPlayerId];
-      setHeroNameInputs(existing ? { ...DEFAULT_HERO_NAMES, ...existing } : { ...DEFAULT_HERO_NAMES });
+      setHeroNameInputs(
+        existing
+          ? { ...DEFAULT_HERO_NAMES, ...existing }
+          : { ...DEFAULT_HERO_NAMES },
+      );
     }
   }, [showHeroNamesModal, selectedPlayerId]);
 
@@ -253,7 +297,9 @@ export function GameCanvas({
 
   const getScale = useCallback(() => {
     if (viewportSize.width <= 0 || viewportSize.height <= 0) return 1;
-    return Math.min(viewportSize.width / mapW, viewportSize.height / mapH) * zoom;
+    return (
+      Math.min(viewportSize.width / mapW, viewportSize.height / mapH) * zoom
+    );
   }, [viewportSize, zoom, mapW, mapH]);
 
   const clampPan = useCallback(
@@ -539,7 +585,10 @@ export function GameCanvas({
     return null;
   };
 
-  const getGameCoordsFromClient = (clientX: number, clientY: number): { x: number; y: number } => {
+  const getGameCoordsFromClient = (
+    clientX: number,
+    clientY: number,
+  ): { x: number; y: number } => {
     const canvas = overlayCanvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
@@ -582,7 +631,9 @@ export function GameCanvas({
     return () => overlay.removeEventListener("wheel", onWheel);
   }, [getGameCoordsFromClient, getScale, clampPan]);
 
-  const getGameCoords = (event: MouseEvent<HTMLCanvasElement>): { x: number; y: number } =>
+  const getGameCoords = (
+    event: MouseEvent<HTMLCanvasElement>,
+  ): { x: number; y: number } =>
     getGameCoordsFromClient(event.clientX, event.clientY);
 
   const executeGameClick = useCallback(
@@ -593,7 +644,10 @@ export function GameCanvas({
         const building = findBuildingAt(x, y);
         if (building && state) {
           const entity = state.entities.find((e) => e.id === building.id);
-          if (entity && (entity.kind === "castle" || entity.kind === "barrack")) {
+          if (
+            entity &&
+            (entity.kind === "castle" || entity.kind === "barrack")
+          ) {
             setUpgradePanelBuildingId(building.id);
             setSelectedNeutralPointId(null);
           }
@@ -612,7 +666,10 @@ export function GameCanvas({
         const building = findBuildingAt(x, y);
         if (buildingAction === "upgrade" && building && state) {
           const entity = state.entities.find((e) => e.id === building.id);
-          if (entity && (entity.kind === "castle" || entity.kind === "barrack")) {
+          if (
+            entity &&
+            (entity.kind === "castle" || entity.kind === "barrack")
+          ) {
             setUpgradePanelBuildingId(building.id);
             setSelectedPlayerId(building.ownerId);
             setSelectedNeutralPointId(null);
@@ -630,7 +687,10 @@ export function GameCanvas({
               setBuildingPositions((prev) => {
                 const next = { ...prev, [id]: pos };
                 try {
-                  window.localStorage.setItem(BUILDINGS_STORAGE_KEY, JSON.stringify(next));
+                  window.localStorage.setItem(
+                    BUILDINGS_STORAGE_KEY,
+                    JSON.stringify(next),
+                  );
                 } catch {
                   // ignore
                 }
@@ -712,7 +772,9 @@ export function GameCanvas({
 
     const waypointIdx = selectedBarrackId ? findWaypointIndexAt(x, y) : null;
     const buildingForMove =
-      effectiveMode === "buildings" && buildingAction === "move" ? findBuildingAt(x, y) : null;
+      effectiveMode === "buildings" && buildingAction === "move"
+        ? findBuildingAt(x, y)
+        : null;
 
     if (waypointIdx !== null) {
       setDragIndex(waypointIdx);
@@ -738,11 +800,16 @@ export function GameCanvas({
     handlePointerDown(event.clientX, event.clientY);
   };
 
-  const doPan = useCallback((deltaX: number, deltaY: number) => {
-    const scale = getScale();
-    if (scale <= 0) return;
-    setPan((p) => clampPan({ x: p.x - deltaX / scale, y: p.y - deltaY / scale }));
-  }, [getScale, clampPan]);
+  const doPan = useCallback(
+    (deltaX: number, deltaY: number) => {
+      const scale = getScale();
+      if (scale <= 0) return;
+      setPan((p) =>
+        clampPan({ x: p.x - deltaX / scale, y: p.y - deltaY / scale }),
+      );
+    },
+    [getScale, clampPan],
+  );
 
   const handlePointerMove = useCallback(
     (clientX: number, clientY: number) => {
@@ -758,14 +825,21 @@ export function GameCanvas({
         });
         return;
       }
-      if (selectedBuildingId && effectiveMode === "buildings" && buildingAction === "move") {
+      if (
+        selectedBuildingId &&
+        effectiveMode === "buildings" &&
+        buildingAction === "move"
+      ) {
         const { x, y } = getGameCoordsFromClient(clientX, clientY);
         const finalPos = toFinalPosition(x, y);
         setBuildingPosition(selectedBuildingId, finalPos);
         setBuildingPositions((prev) => {
           const next = { ...prev, [selectedBuildingId]: finalPos };
           try {
-            window.localStorage.setItem(BUILDINGS_STORAGE_KEY, JSON.stringify(next));
+            window.localStorage.setItem(
+              BUILDINGS_STORAGE_KEY,
+              JSON.stringify(next),
+            );
           } catch {
             // ignore
           }
@@ -780,11 +854,18 @@ export function GameCanvas({
         const dy = clientY - last.clientY;
         const isMobile =
           typeof window !== "undefined" &&
-          (window.matchMedia("(max-width: 640px)").matches || window.matchMedia("(pointer: coarse)").matches);
-        const panThreshold = isMobile ? PAN_THRESHOLD_MOBILE : PAN_THRESHOLD_DESKTOP;
+          (window.matchMedia("(max-width: 640px)").matches ||
+            window.matchMedia("(pointer: coarse)").matches);
+        const panThreshold = isMobile
+          ? PAN_THRESHOLD_MOBILE
+          : PAN_THRESHOLD_DESKTOP;
         const elapsedMs = Date.now() - pointerDownTimeRef.current;
         const delayPassed = !isMobile || elapsedMs >= PAN_DELAY_MOBILE_MS;
-        if (!isPanningRef.current && delayPassed && Math.hypot(dx, dy) > panThreshold) {
+        if (
+          !isPanningRef.current &&
+          delayPassed &&
+          Math.hypot(dx, dy) > panThreshold
+        ) {
           isPanningRef.current = true;
         }
         if (isPanningRef.current) {
@@ -954,18 +1035,18 @@ export function GameCanvas({
 
     // Точки и номера маршрута — только в режиме маршрутов.
     if (effectiveMode === "routes") {
-    waypoints.forEach((wp, index) => {
-      ctx.fillStyle = "#0ea5e9"; // sky-500
-      ctx.beginPath();
-      ctx.arc(wp.x, wp.y, POINT_RADIUS, 0, Math.PI * 2);
-      ctx.fill();
+      waypoints.forEach((wp, index) => {
+        ctx.fillStyle = "#0ea5e9"; // sky-500
+        ctx.beginPath();
+        ctx.arc(wp.x, wp.y, POINT_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
 
-      ctx.fillStyle = "#e5e7eb"; // gray-200
-      ctx.font = "10px system-ui";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(String(index + 1), wp.x, wp.y);
-    });
+        ctx.fillStyle = "#e5e7eb"; // gray-200
+        ctx.font = "10px system-ui";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(index + 1), wp.x, wp.y);
+      });
     }
 
     if (vp && vp.width > 0 && vp.height > 0) {
@@ -1062,92 +1143,248 @@ export function GameCanvas({
       className={`flex min-h-0 flex-1 flex-col md:flex-row gap-2 md:gap-3 ${className ?? ""}`.trim()}
       style={style}
     >
-      {showHeroNamesModal && mode === "local" && selectedPlayerId && config.heroTypes && Object.keys(config.heroTypes).length > 0 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl bg-slate-800 p-6 shadow-xl border border-slate-600">
-            <p className="mb-4 text-slate-200 text-sm">
-              В игре есть герои, ты можешь дать им имена, если хочешь:
-            </p>
-            <div className="space-y-3 mb-6">
-              {(["hero-1", "hero-2", "hero-3"] as const).map((heroTypeId) => {
-                if (!config.heroTypes![heroTypeId]) return null;
-                return (
-                  <label key={heroTypeId} className="block">
-                    <span className="block text-xs text-slate-500 mb-1">
-                      {(heroTypeId === "hero-1" && "Первый герой") ||
-                        (heroTypeId === "hero-2" && "Второй герой") ||
-                        (heroTypeId === "hero-3" && "Третий герой")}
-                    </span>
-                    <input
-                      type="text"
-                      value={heroNameInputs[heroTypeId] ?? DEFAULT_HERO_NAMES[heroTypeId]}
-                      onChange={(e) =>
-                        setHeroNameInputs((prev) => ({
-                          ...prev,
-                          [heroTypeId]: e.target.value.trim() || DEFAULT_HERO_NAMES[heroTypeId],
-                        }))
-                      }
-                      placeholder={DEFAULT_HERO_NAMES[heroTypeId]}
-                      className="w-full rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 text-slate-200 placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                    />
-                  </label>
-                );
-              })}
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => saveHeroNames(selectedPlayerId)}
-                className="rounded-lg bg-amber-500 px-4 py-2 font-medium text-slate-900 hover:bg-amber-400 transition"
-              >
-                Готово
-              </button>
+      {showHeroNamesModal &&
+        mode === "local" &&
+        selectedPlayerId &&
+        config.heroTypes &&
+        Object.keys(config.heroTypes).length > 0 && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+            <div className="w-full max-w-md rounded-xl bg-slate-800 p-6 shadow-xl border border-slate-600">
+              <p className="mb-4 text-slate-200 text-sm">
+                В игре есть герои, ты можешь дать им имена, если хочешь:
+              </p>
+              <div className="space-y-3 mb-6">
+                {(["hero-1", "hero-2", "hero-3"] as const).map((heroTypeId) => {
+                  if (!config.heroTypes![heroTypeId]) return null;
+                  return (
+                    <label key={heroTypeId} className="block">
+                      <span className="block text-xs text-slate-500 mb-1">
+                        {(heroTypeId === "hero-1" && "Первый герой") ||
+                          (heroTypeId === "hero-2" && "Второй герой") ||
+                          (heroTypeId === "hero-3" && "Третий герой")}
+                      </span>
+                      <input
+                        type="text"
+                        value={
+                          heroNameInputs[heroTypeId] ??
+                          DEFAULT_HERO_NAMES[heroTypeId]
+                        }
+                        onChange={(e) =>
+                          setHeroNameInputs((prev) => ({
+                            ...prev,
+                            [heroTypeId]:
+                              e.target.value.trim() ||
+                              DEFAULT_HERO_NAMES[heroTypeId],
+                          }))
+                        }
+                        placeholder={DEFAULT_HERO_NAMES[heroTypeId]}
+                        className="w-full rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 text-slate-200 placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => saveHeroNames(selectedPlayerId)}
+                  className="rounded-lg bg-amber-500 px-4 py-2 font-medium text-slate-900 hover:bg-amber-400 transition"
+                >
+                  Готово
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
-      <div className="flex flex-1 flex-col gap-2 min-w-0">
-      {isDev && (
-      <div className="flex flex-shrink-0 flex-wrap items-center gap-2 sm:gap-3 rounded-lg bg-slate-800/90 px-2 sm:px-3 py-2 text-xs sm:text-sm min-h-[3.5rem] sm:min-h-[4rem]">
-        <span className="text-slate-400">Режим:</span>
-        <div className="flex rounded-md bg-slate-700 p-0.5">
-          <button
-            type="button"
-            onClick={() => setEditorMode("routes")}
-            className={`rounded px-3 py-1 font-medium transition ${effectiveMode === "routes" ? "bg-amber-500 text-slate-900" : "text-slate-300 hover:bg-slate-600"}`}
-          >
-            Маршруты
-          </button>
-          <button
-            type="button"
-            onClick={() => setEditorMode("buildings")}
-            className={`rounded px-3 py-1 font-medium transition ${effectiveMode === "buildings" ? "bg-amber-500 text-slate-900" : "text-slate-300 hover:bg-slate-600"}`}
-          >
-            Здания
-          </button>
-          <button
-            type="button"
-            onClick={() => setEditorMode("test")}
-            className={`rounded px-3 py-1 font-medium transition ${effectiveMode === "test" ? "bg-amber-500 text-slate-900" : "text-slate-300 hover:bg-slate-600"}`}
-          >
-            Тест
-          </button>
-        </div>
-
-        {effectiveMode === "routes" && (
-          <span className="text-slate-500">
-            Клик по бараку — выбрать. Клик по полю — добавить точку маршрута.
-            ПКМ по точке — удалить.
-          </span>
         )}
 
-        {effectiveMode === "test" && (
-          <>
-            <span className="text-slate-500">
-              Симуляция. Клик по замку или бараку — улучшения.
-            </span>
-            <label className="flex cursor-pointer items-center gap-2 text-xs sm:text-sm text-slate-200">
+      <div className="flex flex-1 flex-col gap-2 min-w-0">
+        {isDev && (
+          <div className="flex flex-shrink-0 flex-wrap items-center gap-2 sm:gap-3 rounded-lg bg-slate-800/90 px-2 sm:px-3 py-2 text-xs sm:text-sm min-h-[3.5rem] sm:min-h-[4rem]">
+            <span className="text-slate-400">Режим:</span>
+            <div className="flex rounded-md bg-slate-700 p-0.5">
+              <button
+                type="button"
+                onClick={() => setEditorMode("routes")}
+                className={`rounded px-3 py-1 font-medium transition ${effectiveMode === "routes" ? "bg-amber-500 text-slate-900" : "text-slate-300 hover:bg-slate-600"}`}
+              >
+                Маршруты
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditorMode("buildings")}
+                className={`rounded px-3 py-1 font-medium transition ${effectiveMode === "buildings" ? "bg-amber-500 text-slate-900" : "text-slate-300 hover:bg-slate-600"}`}
+              >
+                Здания
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditorMode("test")}
+                className={`rounded px-3 py-1 font-medium transition ${effectiveMode === "test" ? "bg-amber-500 text-slate-900" : "text-slate-300 hover:bg-slate-600"}`}
+              >
+                Тест
+              </button>
+            </div>
+
+            {effectiveMode === "routes" && (
+              <span className="text-slate-500">
+                Клик по бараку — выбрать. Клик по полю — добавить точку
+                маршрута. ПКМ по точке — удалить.
+              </span>
+            )}
+
+            {effectiveMode === "test" && (
+              <>
+                <span className="text-slate-500">
+                  Симуляция. Клик по замку или бараку — улучшения.
+                </span>
+                <label className="flex cursor-pointer items-center gap-2 text-xs sm:text-sm text-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={autoDevelopmentEnabled}
+                    onChange={toggleAutoDevelopment}
+                    className="h-4 w-4 rounded border-slate-600 bg-slate-700 text-amber-500 focus:ring-amber-500"
+                  />
+                  <span>Авторазвитие</span>
+                </label>
+                {state &&
+                  (() => {
+                    const currentPlayerId = playerId ?? selectedPlayerId;
+                    const ps = currentPlayerId
+                      ? state.playerStates[currentPlayerId]
+                      : null;
+                    if (!ps) return null;
+                    const player = config.players.find(
+                      (p) => p.id === currentPlayerId,
+                    );
+                    return (
+                      <div
+                        className="flex items-center gap-1.5 rounded-full bg-slate-700/80 px-2.5 py-1.5 ring-1 ring-slate-600/60"
+                        style={
+                          player
+                            ? { borderLeft: `3px solid ${player.color}` }
+                            : undefined
+                        }
+                        aria-label={`Золото: ${Math.floor(ps.gold)}, инком ${(ps.goldPerSecond ?? 0).toFixed(1)}/с`}
+                      >
+                        <span className="text-sm leading-none">🪙</span>
+                        <span className="font-semibold tabular-nums text-amber-400 text-sm min-w-[2.5rem]">
+                          {Math.floor(ps.gold)}
+                        </span>
+                        {(ps.goldPerSecond ?? 0) > 0 && (
+                          <span className="tabular-nums text-slate-400 text-xs">
+                            +{(ps.goldPerSecond ?? 0).toFixed(1)}/с
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
+              </>
+            )}
+
+            {effectiveMode === "buildings" && (
+              <>
+                <span className="text-slate-400">Действие:</span>
+                <div className="flex rounded-md bg-slate-700 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setBuildingAction("move")}
+                    className={`rounded px-2 py-1 text-xs font-medium transition ${buildingAction === "move" ? "bg-amber-500 text-slate-900" : "text-slate-300 hover:bg-slate-600"}`}
+                  >
+                    Перемещать
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBuildingAction("upgrade")}
+                    className={`rounded px-2 py-1 text-xs font-medium transition ${buildingAction === "upgrade" ? "bg-amber-500 text-slate-900" : "text-slate-300 hover:bg-slate-600"}`}
+                  >
+                    Улучшения
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBuildingAction("addBarrack")}
+                    className={`rounded px-2 py-1 text-xs font-medium transition ${buildingAction === "addBarrack" ? "bg-amber-500 text-slate-900" : "text-slate-300 hover:bg-slate-600"}`}
+                  >
+                    + Барак
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBuildingAction("addTower")}
+                    className={`rounded px-2 py-1 text-xs font-medium transition ${buildingAction === "addTower" ? "bg-amber-500 text-slate-900" : "text-slate-300 hover:bg-slate-600"}`}
+                  >
+                    + Башня
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBuildingAction("addNeutralPoint")}
+                    className={`rounded px-2 py-1 text-xs font-medium transition ${buildingAction === "addNeutralPoint" ? "bg-amber-500 text-slate-900" : "text-slate-300 hover:bg-slate-600"}`}
+                  >
+                    + Нейтральная точка
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBuildingAction("removeNeutralPoint")}
+                    className={`rounded px-2 py-1 text-xs font-medium transition ${buildingAction === "removeNeutralPoint" ? "bg-red-600 text-white" : "text-slate-300 hover:bg-slate-600"}`}
+                    title="Клик по нейтральной точке — удалить"
+                  >
+                    − Нейтральная точка
+                  </button>
+                </div>
+                <span className="text-slate-400">Игрок:</span>
+                <div className="flex gap-1">
+                  {config.players.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setSelectedPlayerId(p.id)}
+                      className={`rounded px-2 py-1 text-xs font-medium transition ${selectedPlayerId === p.id ? "bg-sky-500 text-white" : "bg-slate-600 text-slate-300 hover:bg-slate-500"}`}
+                      style={
+                        selectedPlayerId === p.id
+                          ? { backgroundColor: p.color }
+                          : undefined
+                      }
+                    >
+                      {p.id.replace("player-", "Игрок ")}
+                    </button>
+                  ))}
+                </div>
+                {gridSize > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setGridSnapEnabled((v) => !v)}
+                    className={`rounded px-2 py-1 text-xs font-medium transition ${gridSnapEnabled ? "bg-emerald-600 text-white" : "bg-slate-600 text-slate-300 hover:bg-slate-500"}`}
+                    title={
+                      gridSnapEnabled
+                        ? `Привязка к сетке ${gridSize}px (вкл)`
+                        : "Привязка к сетке выключена"
+                    }
+                  >
+                    Сетка {gridSize}px {gridSnapEnabled ? "вкл" : "выкл"}
+                  </button>
+                )}
+                <span className="text-slate-500">
+                  {buildingAction === "move"
+                    ? "Клик по зданию и перетащите для перемещения."
+                    : buildingAction === "upgrade"
+                      ? "Клик по замку или бараку — открыть панель улучшений."
+                      : buildingAction === "addBarrack"
+                        ? "Клик по пустому месту — добавить барак."
+                        : buildingAction === "addTower"
+                          ? "Клик по пустому месту — добавить башню."
+                          : buildingAction === "addNeutralPoint"
+                            ? "Клик по пустому месту — добавить нейтральную точку."
+                            : buildingAction === "removeNeutralPoint"
+                              ? "Клик по нейтральной точке — удалить."
+                              : ""}{" "}
+                  Позиции сохраняются автоматически.
+                </span>
+              </>
+            )}
+          </div>
+        )}
+
+        {!isDev && effectiveMode === "test" && (
+          <div className="flex flex-shrink-0 flex-wrap items-center gap-2 sm:gap-3 rounded-lg bg-slate-800/90 px-2 sm:px-3 py-2 text-xs sm:text-sm min-h-[3rem] sm:min-h-[3.5rem]">
+            <label className="flex cursor-pointer items-center gap-2 text-slate-200">
               <input
                 type="checkbox"
                 checked={autoDevelopmentEnabled}
@@ -1156,418 +1393,347 @@ export function GameCanvas({
               />
               <span>Авторазвитие</span>
             </label>
-            {state && (() => {
-              const currentPlayerId = playerId ?? selectedPlayerId;
-              const ps = currentPlayerId ? state.playerStates[currentPlayerId] : null;
-              if (!ps) return null;
-              const player = config.players.find((p) => p.id === currentPlayerId);
-              return (
-                <div
-                  className="flex items-center gap-1.5 rounded-full bg-slate-700/80 px-2.5 py-1.5 ring-1 ring-slate-600/60"
-                  style={player ? { borderLeft: `3px solid ${player.color}` } : undefined}
-                  aria-label={`Золото: ${Math.floor(ps.gold)}, инком ${(ps.goldPerSecond ?? 0).toFixed(1)}/с`}
-                >
-                  <span className="text-sm leading-none">🪙</span>
-                  <span className="font-semibold tabular-nums text-amber-400 text-sm min-w-[2.5rem]">
-                    {Math.floor(ps.gold)}
-                  </span>
-                  {(ps.goldPerSecond ?? 0) > 0 && (
-                    <span className="tabular-nums text-slate-400 text-xs">
-                      +{(ps.goldPerSecond ?? 0).toFixed(1)}/с
+            {state &&
+              (() => {
+                const currentPlayerId = playerId ?? selectedPlayerId;
+                const ps = currentPlayerId
+                  ? state.playerStates[currentPlayerId]
+                  : null;
+                if (!ps) return null;
+                const player = config.players.find(
+                  (p) => p.id === currentPlayerId,
+                );
+                return (
+                  <div
+                    className="flex items-center gap-1.5 rounded-full bg-slate-700/80 px-2.5 py-1.5 ring-1 ring-slate-600/60"
+                    style={
+                      player
+                        ? { borderLeft: `3px solid ${player.color}` }
+                        : undefined
+                    }
+                    aria-label={`Золото: ${Math.floor(ps.gold)}, инком ${(ps.goldPerSecond ?? 0).toFixed(1)}/с`}
+                  >
+                    <span className="text-sm leading-none">🪙</span>
+                    <span className="font-semibold tabular-nums text-amber-400 text-sm min-w-[2.5rem]">
+                      {Math.floor(ps.gold)}
                     </span>
+                    {(ps.goldPerSecond ?? 0) > 0 && (
+                      <span className="tabular-nums text-slate-400 text-xs">
+                        +{(ps.goldPerSecond ?? 0).toFixed(1)}/с
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
+          </div>
+        )}
+
+        <div className="flex flex-1 min-h-0 min-w-0 flex-col md:flex-row md:items-center gap-2 md:gap-3">
+          <div className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden">
+            <div
+              ref={viewportContainerRef}
+              className="relative shrink-0 w-full h-full min-h-0"
+              style={{ aspectRatio: "1", maxWidth: "100%", maxHeight: "100%" }}
+            >
+              <div className="absolute bottom-2 right-2 z-10 flex flex-col gap-1 rounded-lg bg-slate-800/90 p-1 shadow-lg md:bottom-3 md:right-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setZoom((z) => Math.min(ZOOM_MAX, z * 1.2));
+                  }}
+                  className="rounded px-2 py-1 text-sm font-bold text-slate-200 hover:bg-slate-600 transition leading-none"
+                  aria-label="Приблизить"
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setZoom((z) => Math.max(ZOOM_MIN, z / 1.2));
+                  }}
+                  className="rounded px-2 py-1 text-sm font-bold text-slate-200 hover:bg-slate-600 transition leading-none"
+                  aria-label="Отдалить"
+                >
+                  −
+                </button>
+              </div>
+              {state?.gameOver && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-black/70">
+                  <div className="rounded-xl bg-slate-800 px-8 py-6 text-center shadow-xl">
+                    <h2 className="mb-2 text-xl font-bold text-amber-400">
+                      Игра окончена
+                    </h2>
+                    <p className="text-slate-300">
+                      {state.winnerIds.length > 0
+                        ? `Победитель: ${state.winnerIds
+                            .map(
+                              (id) =>
+                                config.players
+                                  .find((p) => p.id === id)
+                                  ?.id?.replace("player-", "Игрок ") ?? id,
+                            )
+                            .join(", ")}`
+                        : "Все здания уничтожены"}
+                    </p>
+                  </div>
+                </div>
+              )}
+              <canvas
+                ref={baseCanvasRef}
+                className="absolute inset-0 h-full w-full bg-slate-900 rounded-lg shadow-inner"
+              />
+              <canvas
+                ref={overlayCanvasRef}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={() => handlePointerUp(0, 0, true)}
+                onTouchStart={(e: TouchEvent<HTMLCanvasElement>) => {
+                  if (e.touches.length === 2) {
+                    const dx = e.touches[1].clientX - e.touches[0].clientX;
+                    const dy = e.touches[1].clientY - e.touches[0].clientY;
+                    lastPinchRef.current = {
+                      dist: Math.hypot(dx, dy),
+                      pan: { ...pan },
+                      center: {
+                        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                        y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+                      },
+                    };
+                    lastPointerRef.current = null;
+                  } else if (e.touches.length === 1) {
+                    handlePointerDown(
+                      e.touches[0].clientX,
+                      e.touches[0].clientY,
+                    );
+                  }
+                }}
+                onTouchMove={(e: TouchEvent<HTMLCanvasElement>) => {
+                  if (e.touches.length === 2 && lastPinchRef.current) {
+                    const dx = e.touches[1].clientX - e.touches[0].clientX;
+                    const dy = e.touches[1].clientY - e.touches[0].clientY;
+                    const dist = Math.hypot(dx, dy);
+                    const prev = lastPinchRef.current;
+                    const factor = dist / prev.dist;
+                    const newZoom = Math.max(
+                      ZOOM_MIN,
+                      Math.min(ZOOM_MAX, zoom * factor),
+                    );
+                    lastPinchRef.current = { ...prev, dist };
+                    setZoom(newZoom);
+                  } else if (e.touches.length === 1) {
+                    handlePointerMove(
+                      e.touches[0].clientX,
+                      e.touches[0].clientY,
+                    );
+                  }
+                }}
+                onTouchEnd={(e: TouchEvent<HTMLCanvasElement>) => {
+                  if (e.touches.length === 0) {
+                    const last = lastPointerRef.current;
+                    handlePointerUp(last?.clientX ?? 0, last?.clientY ?? 0);
+                  } else if (e.touches.length === 1) {
+                    lastPinchRef.current = null;
+                  } else if (e.touches.length === 2) {
+                    lastPinchRef.current = {
+                      dist: Math.hypot(
+                        e.touches[1].clientX - e.touches[0].clientX,
+                        e.touches[1].clientY - e.touches[0].clientY,
+                      ),
+                      pan,
+                      center: {
+                        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                        y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+                      },
+                    };
+                  }
+                }}
+                onTouchCancel={() => handlePointerUp(0, 0, true)}
+                onContextMenu={handleContextMenu}
+                className={`absolute inset-0 w-full h-full rounded-lg touch-none ${
+                  effectiveMode === "test"
+                    ? "cursor-default"
+                    : effectiveMode === "buildings"
+                      ? buildingAction === "move"
+                        ? "cursor-move"
+                        : buildingAction === "upgrade"
+                          ? "cursor-pointer"
+                          : "cursor-crosshair"
+                      : "cursor-crosshair"
+                }`}
+              />
+            </div>
+          </div>
+
+          <div className="flex-shrink-0 md:w-52 lg:w-60 rounded-lg bg-slate-800/90 px-3 py-2 text-xs text-slate-400 space-y-1">
+            <p className="hidden md:block">
+              <strong className="text-slate-300">Как играть:</strong> Клик по
+              замку или бараку — панель улучшений. Колёсико мыши — зум,
+              перетаскивание — движение карты.
+            </p>
+            <p className="md:hidden">
+              <strong className="text-slate-300">Как играть:</strong> Нажмите на
+              замок или барак — откроется панель улучшений. Два пальца — зум,
+              один — движение карты.
+            </p>
+            <p>
+              Золото копится со зданий, за убийство юнитов и зданий, и от
+              захваченных нейтральных контрольных зон. Покупайте улучшения в
+              замке и бараках. Воины идут по маршруту и атакуют врагов.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {upgradePanelBuildingId &&
+        state &&
+        (() => {
+          const entity = state.entities.find(
+            (e) => e.id === upgradePanelBuildingId,
+          );
+          if (
+            !entity ||
+            (entity.kind !== "castle" && entity.kind !== "barrack")
+          )
+            return null;
+          const rect = overlayCanvasRef.current?.getBoundingClientRect();
+          if (!rect) return null;
+          const vp = viewportRef.current;
+          let left: number;
+          let top: number;
+          if (vp && vp.width > 0 && vp.height > 0) {
+            const scale =
+              Math.min(vp.width / vp.mapWidth, vp.height / vp.mapHeight) *
+              vp.zoom;
+            left = rect.left + (entity.position.x - vp.panX) * scale;
+            top = rect.top + (entity.position.y - vp.panY) * scale;
+          } else {
+            left =
+              rect.left + (entity.position.x / config.mapWidth) * rect.width;
+            top =
+              rect.top + (entity.position.y / config.mapHeight) * rect.height;
+          }
+          const playerState = state.playerStates[entity.ownerId];
+          const barrackLevel = state.barrackLevels?.[entity.id] ?? 0;
+          const barrackBuyCapacity = state.barrackBuyCapacity?.[entity.id];
+          const barrackRepairCooldownMs =
+            state.barrackRepairCooldownMs?.[entity.id] ?? 0;
+          const barrackHeroCooldowns =
+            state.barrackHeroCooldowns?.[entity.id] ?? {};
+          const aliveHeroTypeIds = new Set(
+            state.entities
+              .filter(
+                (e) => e.isHero && e.ownerId === entity.ownerId && e.isAlive,
+              )
+              .map((e) => e.heroTypeId!)
+              .filter(Boolean),
+          );
+          return (
+            <BuildingUpgradePanel
+              entity={entity}
+              config={config}
+              currentPlayerId={playerId ?? selectedPlayerId}
+              playerState={playerState}
+              barrackLevel={barrackLevel}
+              barrackBuyCapacity={barrackBuyCapacity}
+              barrackRepairCooldownMs={barrackRepairCooldownMs}
+              barrackHeroCooldowns={barrackHeroCooldowns}
+              aliveHeroTypeIds={aliveHeroTypeIds}
+              heroNames={heroNamesByPlayer[entity.ownerId]}
+              onSummonHero={summonHero}
+              position={{ left, top }}
+              bounds={{
+                left: rect.left,
+                top: rect.top,
+                right: rect.right,
+                bottom: rect.bottom,
+              }}
+              isMobile={isMobile}
+              onBuyCastleUpgrade={buyCastleUpgrade}
+              onBuyBarrackUpgrade={buyBarrackUpgrade}
+              onBuyBarrackWarrior={buyBarrackWarrior}
+              onRepairBarrack={repairBarrack}
+              onCastCastleSpell={castCastleSpell}
+              onClose={() => {
+                setUpgradePanelBuildingId(null);
+                setSelectedNeutralPointId(null);
+              }}
+              gameOver={state.gameOver}
+            />
+          );
+        })()}
+
+      {selectedNeutralPointId &&
+        state?.neutralPoints &&
+        (() => {
+          const pt = state.neutralPoints.find(
+            (p) => p.id === selectedNeutralPointId,
+          );
+          if (!pt) return null;
+          const rect = overlayCanvasRef.current?.getBoundingClientRect();
+          if (!rect) return null;
+          const vp = viewportRef.current;
+          let left: number;
+          let top: number;
+          if (vp && vp.width > 0 && vp.height > 0) {
+            const scale =
+              Math.min(vp.width / vp.mapWidth, vp.height / vp.mapHeight) *
+              vp.zoom;
+            left = rect.left + (pt.position.x - vp.panX) * scale;
+            top = rect.top + (pt.position.y - vp.panY) * scale - 90;
+          } else {
+            left = rect.left + (pt.position.x / config.mapWidth) * rect.width;
+            top =
+              rect.top + (pt.position.y / config.mapHeight) * rect.height - 90;
+          }
+          left = Math.max(rect.left + 8, Math.min(rect.right - 220, left));
+          top = Math.max(rect.top + 8, top);
+          const goldPerSec =
+            pt.goldIntervalMs > 0
+              ? ((pt.goldPerInterval * 1000) / pt.goldIntervalMs).toFixed(1)
+              : "0";
+          const ownerPlayer = config.players.find((p) => p.id === pt.ownerId);
+          return (
+            <div
+              className="absolute z-20 min-w-[200px] max-w-[260px] rounded-lg border border-slate-600 bg-slate-800 px-4 py-3 shadow-xl"
+              style={{ left, top }}
+            >
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="font-medium text-slate-200">Точка захвата</h3>
+                <button
+                  type="button"
+                  onClick={() => setSelectedNeutralPointId(null)}
+                  className="rounded p-1 text-slate-400 hover:bg-slate-600 hover:text-slate-200"
+                  aria-label="Закрыть"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="space-y-1 text-sm text-slate-400">
+                <div>
+                  <span className="text-slate-500">Золото:</span>{" "}
+                  <span className="text-amber-400">+{pt.goldPerInterval}</span>{" "}
+                  каждые {Math.round(pt.goldIntervalMs / 1000)} с ({goldPerSec}
+                  /с)
+                </div>
+                <div>
+                  <span className="text-slate-500">Владелец:</span>{" "}
+                  {pt.ownerId ? (
+                    <span style={{ color: ownerPlayer?.color ?? "#888" }}>
+                      {ownerPlayer?.id ?? pt.ownerId}
+                    </span>
+                  ) : (
+                    <span className="text-slate-500">нейтральная</span>
                   )}
                 </div>
-              );
-            })()}
-          </>
-        )}
-
-        {effectiveMode === "buildings" && (
-          <>
-            <span className="text-slate-400">Действие:</span>
-            <div className="flex rounded-md bg-slate-700 p-0.5">
-              <button
-                type="button"
-                onClick={() => setBuildingAction("move")}
-                className={`rounded px-2 py-1 text-xs font-medium transition ${buildingAction === "move" ? "bg-amber-500 text-slate-900" : "text-slate-300 hover:bg-slate-600"}`}
-              >
-                Перемещать
-              </button>
-              <button
-                type="button"
-                onClick={() => setBuildingAction("upgrade")}
-                className={`rounded px-2 py-1 text-xs font-medium transition ${buildingAction === "upgrade" ? "bg-amber-500 text-slate-900" : "text-slate-300 hover:bg-slate-600"}`}
-              >
-                Улучшения
-              </button>
-              <button
-                type="button"
-                onClick={() => setBuildingAction("addBarrack")}
-                className={`rounded px-2 py-1 text-xs font-medium transition ${buildingAction === "addBarrack" ? "bg-amber-500 text-slate-900" : "text-slate-300 hover:bg-slate-600"}`}
-              >
-                + Барак
-              </button>
-              <button
-                type="button"
-                onClick={() => setBuildingAction("addTower")}
-                className={`rounded px-2 py-1 text-xs font-medium transition ${buildingAction === "addTower" ? "bg-amber-500 text-slate-900" : "text-slate-300 hover:bg-slate-600"}`}
-              >
-                + Башня
-              </button>
-              <button
-                type="button"
-                onClick={() => setBuildingAction("addNeutralPoint")}
-                className={`rounded px-2 py-1 text-xs font-medium transition ${buildingAction === "addNeutralPoint" ? "bg-amber-500 text-slate-900" : "text-slate-300 hover:bg-slate-600"}`}
-              >
-                + Нейтральная точка
-              </button>
-              <button
-                type="button"
-                onClick={() => setBuildingAction("removeNeutralPoint")}
-                className={`rounded px-2 py-1 text-xs font-medium transition ${buildingAction === "removeNeutralPoint" ? "bg-red-600 text-white" : "text-slate-300 hover:bg-slate-600"}`}
-                title="Клик по нейтральной точке — удалить"
-              >
-                − Нейтральная точка
-              </button>
-            </div>
-            <span className="text-slate-400">Игрок:</span>
-            <div className="flex gap-1">
-              {config.players.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setSelectedPlayerId(p.id)}
-                  className={`rounded px-2 py-1 text-xs font-medium transition ${selectedPlayerId === p.id ? "bg-sky-500 text-white" : "bg-slate-600 text-slate-300 hover:bg-slate-500"}`}
-                  style={
-                    selectedPlayerId === p.id
-                      ? { backgroundColor: p.color }
-                      : undefined
-                  }
-                >
-                  {p.id.replace("player-", "Игрок ")}
-                </button>
-              ))}
-            </div>
-            {gridSize > 0 && (
-              <button
-                type="button"
-                onClick={() => setGridSnapEnabled((v) => !v)}
-                className={`rounded px-2 py-1 text-xs font-medium transition ${gridSnapEnabled ? "bg-emerald-600 text-white" : "bg-slate-600 text-slate-300 hover:bg-slate-500"}`}
-                title={
-                  gridSnapEnabled
-                    ? `Привязка к сетке ${gridSize}px (вкл)`
-                    : "Привязка к сетке выключена"
-                }
-              >
-                Сетка {gridSize}px {gridSnapEnabled ? "вкл" : "выкл"}
-              </button>
-            )}
-            <span className="text-slate-500">
-              {buildingAction === "move"
-                ? "Клик по зданию и перетащите для перемещения."
-                : buildingAction === "upgrade"
-                  ? "Клик по замку или бараку — открыть панель улучшений."
-                  : buildingAction === "addBarrack"
-                    ? "Клик по пустому месту — добавить барак."
-                    : buildingAction === "addTower"
-                      ? "Клик по пустому месту — добавить башню."
-                      : buildingAction === "addNeutralPoint"
-                        ? "Клик по пустому месту — добавить нейтральную точку."
-                        : buildingAction === "removeNeutralPoint"
-                          ? "Клик по нейтральной точке — удалить."
-                          : ""}{" "}
-              Позиции сохраняются автоматически.
-            </span>
-          </>
-        )}
-      </div>
-      )}
-
-      {!isDev && effectiveMode === "test" && (
-        <div className="flex flex-shrink-0 flex-wrap items-center gap-2 sm:gap-3 rounded-lg bg-slate-800/90 px-2 sm:px-3 py-2 text-xs sm:text-sm min-h-[3rem] sm:min-h-[3.5rem]">
-          <label className="flex cursor-pointer items-center gap-2 text-slate-200">
-            <input
-              type="checkbox"
-              checked={autoDevelopmentEnabled}
-              onChange={toggleAutoDevelopment}
-              className="h-4 w-4 rounded border-slate-600 bg-slate-700 text-amber-500 focus:ring-amber-500"
-            />
-            <span>Авторазвитие</span>
-          </label>
-          {state && (() => {
-            const currentPlayerId = playerId ?? selectedPlayerId;
-            const ps = currentPlayerId ? state.playerStates[currentPlayerId] : null;
-            if (!ps) return null;
-            const player = config.players.find((p) => p.id === currentPlayerId);
-            return (
-              <div
-                className="flex items-center gap-1.5 rounded-full bg-slate-700/80 px-2.5 py-1.5 ring-1 ring-slate-600/60"
-                style={player ? { borderLeft: `3px solid ${player.color}` } : undefined}
-                aria-label={`Золото: ${Math.floor(ps.gold)}, инком ${(ps.goldPerSecond ?? 0).toFixed(1)}/с`}
-              >
-                <span className="text-sm leading-none">🪙</span>
-                <span className="font-semibold tabular-nums text-amber-400 text-sm min-w-[2.5rem]">
-                  {Math.floor(ps.gold)}
-                </span>
-                {(ps.goldPerSecond ?? 0) > 0 && (
-                  <span className="tabular-nums text-slate-400 text-xs">
-                    +{(ps.goldPerSecond ?? 0).toFixed(1)}/с
-                  </span>
-                )}
-              </div>
-            );
-          })()}
-        </div>
-      )}
-
-      <div className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden">
-        <div
-          ref={viewportContainerRef}
-          className="relative shrink-0 w-full h-full min-h-0"
-          style={{ aspectRatio: "1", maxWidth: "100%", maxHeight: "100%" }}
-        >
-        <div className="absolute bottom-2 right-2 z-10 flex flex-col gap-1 rounded-lg bg-slate-800/90 p-1 shadow-lg md:bottom-3 md:right-3">
-          <button
-            type="button"
-            onClick={() => {
-              setZoom((z) => Math.min(ZOOM_MAX, z * 1.2));
-            }}
-            className="rounded px-2 py-1 text-sm font-bold text-slate-200 hover:bg-slate-600 transition leading-none"
-            aria-label="Приблизить"
-          >
-            +
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setZoom((z) => Math.max(ZOOM_MIN, z / 1.2));
-            }}
-            className="rounded px-2 py-1 text-sm font-bold text-slate-200 hover:bg-slate-600 transition leading-none"
-            aria-label="Отдалить"
-          >
-            −
-          </button>
-        </div>
-        {state?.gameOver && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-black/70">
-            <div className="rounded-xl bg-slate-800 px-8 py-6 text-center shadow-xl">
-              <h2 className="mb-2 text-xl font-bold text-amber-400">
-                Игра окончена
-              </h2>
-              <p className="text-slate-300">
-                {state.winnerIds.length > 0
-                  ? `Победитель: ${state.winnerIds
-                      .map(
-                        (id) =>
-                          config.players
-                            .find((p) => p.id === id)
-                            ?.id?.replace("player-", "Игрок ") ?? id,
-                      )
-                      .join(", ")}`
-                  : "Все здания уничтожены"}
-              </p>
-            </div>
-          </div>
-        )}
-        <canvas
-          ref={baseCanvasRef}
-          className="absolute inset-0 h-full w-full bg-slate-900 rounded-lg shadow-inner"
-        />
-        <canvas
-          ref={overlayCanvasRef}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={() => handlePointerUp(0, 0, true)}
-          onTouchStart={(e: TouchEvent<HTMLCanvasElement>) => {
-            if (e.touches.length === 2) {
-              const dx = e.touches[1].clientX - e.touches[0].clientX;
-              const dy = e.touches[1].clientY - e.touches[0].clientY;
-              lastPinchRef.current = {
-                dist: Math.hypot(dx, dy),
-                pan: { ...pan },
-                center: {
-                  x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-                  y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
-                },
-              };
-              lastPointerRef.current = null;
-            } else if (e.touches.length === 1) {
-              handlePointerDown(e.touches[0].clientX, e.touches[0].clientY);
-            }
-          }}
-          onTouchMove={(e: TouchEvent<HTMLCanvasElement>) => {
-            if (e.touches.length === 2 && lastPinchRef.current) {
-              const dx = e.touches[1].clientX - e.touches[0].clientX;
-              const dy = e.touches[1].clientY - e.touches[0].clientY;
-              const dist = Math.hypot(dx, dy);
-              const prev = lastPinchRef.current;
-              const factor = dist / prev.dist;
-              const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom * factor));
-              lastPinchRef.current = { ...prev, dist };
-              setZoom(newZoom);
-            } else if (e.touches.length === 1) {
-              handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
-            }
-          }}
-          onTouchEnd={(e: TouchEvent<HTMLCanvasElement>) => {
-            if (e.touches.length === 0) {
-              const last = lastPointerRef.current;
-              handlePointerUp(last?.clientX ?? 0, last?.clientY ?? 0);
-            } else if (e.touches.length === 1) {
-              lastPinchRef.current = null;
-            } else if (e.touches.length === 2) {
-              lastPinchRef.current = {
-                dist: Math.hypot(
-                  e.touches[1].clientX - e.touches[0].clientX,
-                  e.touches[1].clientY - e.touches[0].clientY,
-                ),
-                pan,
-                center: {
-                  x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-                  y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
-                },
-              };
-            }
-          }}
-          onTouchCancel={() => handlePointerUp(0, 0, true)}
-          onContextMenu={handleContextMenu}
-          className={`absolute inset-0 w-full h-full rounded-lg touch-none ${
-            effectiveMode === "test"
-              ? "cursor-default"
-              : effectiveMode === "buildings"
-                ? buildingAction === "move"
-                  ? "cursor-move"
-                  : buildingAction === "upgrade"
-                    ? "cursor-pointer"
-                    : "cursor-crosshair"
-                : "cursor-crosshair"
-          }`}
-        />
-        </div>
-      </div>
-
-      <div className="md:hidden flex-shrink-0 rounded-lg bg-slate-800/90 px-3 py-2 text-xs text-slate-400 space-y-1">
-        <p><strong className="text-slate-300">Как играть:</strong> Нажмите на замок или барак — откроется панель улучшений. Два пальца — зум, один — движение карты.</p>
-        <p>Золото копится со зданий. Покупайте улучшения в замке и бараках. Воины идут по маршруту и атакуют врагов.</p>
-      </div>
-      </div>
-
-      {upgradePanelBuildingId && state && (() => {
-        const entity = state.entities.find((e) => e.id === upgradePanelBuildingId);
-        if (!entity || (entity.kind !== "castle" && entity.kind !== "barrack")) return null;
-        const rect = overlayCanvasRef.current?.getBoundingClientRect();
-        if (!rect) return null;
-        const vp = viewportRef.current;
-        let left: number;
-        let top: number;
-        if (vp && vp.width > 0 && vp.height > 0) {
-          const scale =
-            Math.min(vp.width / vp.mapWidth, vp.height / vp.mapHeight) * vp.zoom;
-          left = rect.left + (entity.position.x - vp.panX) * scale;
-          top = rect.top + (entity.position.y - vp.panY) * scale;
-        } else {
-          left = rect.left + (entity.position.x / config.mapWidth) * rect.width;
-          top = rect.top + (entity.position.y / config.mapHeight) * rect.height;
-        }
-        const playerState = state.playerStates[entity.ownerId];
-        const barrackLevel = state.barrackLevels?.[entity.id] ?? 0;
-        const barrackBuyCapacity = state.barrackBuyCapacity?.[entity.id];
-        const barrackRepairCooldownMs = state.barrackRepairCooldownMs?.[entity.id] ?? 0;
-        const barrackHeroCooldowns = state.barrackHeroCooldowns?.[entity.id] ?? {};
-        const aliveHeroTypeIds = new Set(
-          state.entities
-            .filter((e) => e.isHero && e.ownerId === entity.ownerId && e.isAlive)
-            .map((e) => e.heroTypeId!)
-            .filter(Boolean),
-        );
-        return (
-          <BuildingUpgradePanel
-            entity={entity}
-            config={config}
-            currentPlayerId={playerId ?? selectedPlayerId}
-            playerState={playerState}
-            barrackLevel={barrackLevel}
-            barrackBuyCapacity={barrackBuyCapacity}
-            barrackRepairCooldownMs={barrackRepairCooldownMs}
-            barrackHeroCooldowns={barrackHeroCooldowns}
-            aliveHeroTypeIds={aliveHeroTypeIds}
-            heroNames={heroNamesByPlayer[entity.ownerId]}
-            onSummonHero={summonHero}
-            position={{ left, top }}
-            bounds={{ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }}
-            isMobile={isMobile}
-            onBuyCastleUpgrade={buyCastleUpgrade}
-            onBuyBarrackUpgrade={buyBarrackUpgrade}
-            onBuyBarrackWarrior={buyBarrackWarrior}
-            onRepairBarrack={repairBarrack}
-            onCastCastleSpell={castCastleSpell}
-            onClose={() => {
-              setUpgradePanelBuildingId(null);
-              setSelectedNeutralPointId(null);
-            }}
-            gameOver={state.gameOver}
-          />
-        );
-      })()}
-
-      {selectedNeutralPointId && state?.neutralPoints && (() => {
-        const pt = state.neutralPoints.find((p) => p.id === selectedNeutralPointId);
-        if (!pt) return null;
-        const rect = overlayCanvasRef.current?.getBoundingClientRect();
-        if (!rect) return null;
-        const vp = viewportRef.current;
-        let left: number;
-        let top: number;
-        if (vp && vp.width > 0 && vp.height > 0) {
-          const scale = Math.min(vp.width / vp.mapWidth, vp.height / vp.mapHeight) * vp.zoom;
-          left = rect.left + (pt.position.x - vp.panX) * scale;
-          top = rect.top + (pt.position.y - vp.panY) * scale - 90;
-        } else {
-          left = rect.left + (pt.position.x / config.mapWidth) * rect.width;
-          top = rect.top + (pt.position.y / config.mapHeight) * rect.height - 90;
-        }
-        left = Math.max(rect.left + 8, Math.min(rect.right - 220, left));
-        top = Math.max(rect.top + 8, top);
-        const goldPerSec = pt.goldIntervalMs > 0 ? (pt.goldPerInterval * 1000 / pt.goldIntervalMs).toFixed(1) : "0";
-        const ownerPlayer = config.players.find((p) => p.id === pt.ownerId);
-        return (
-          <div
-            className="absolute z-20 min-w-[200px] max-w-[260px] rounded-lg border border-slate-600 bg-slate-800/95 px-4 py-3 shadow-xl"
-            style={{ left, top }}
-          >
-            <div className="mb-2 flex items-center justify-between">
-              <h3 className="font-medium text-slate-200">Точка захвата</h3>
-              <button
-                type="button"
-                onClick={() => setSelectedNeutralPointId(null)}
-                className="rounded p-1 text-slate-400 hover:bg-slate-600 hover:text-slate-200"
-                aria-label="Закрыть"
-              >
-                ×
-              </button>
-            </div>
-            <div className="space-y-1 text-sm text-slate-400">
-              <div>
-                <span className="text-slate-500">Золото:</span>{" "}
-                <span className="text-amber-400">+{pt.goldPerInterval}</span> каждые {Math.round(pt.goldIntervalMs / 1000)} с
-                {" "}({goldPerSec}/с)
-              </div>
-              <div>
-                <span className="text-slate-500">Владелец:</span>{" "}
-                {pt.ownerId ? (
-                  <span style={{ color: ownerPlayer?.color ?? "#888" }}>{ownerPlayer?.id ?? pt.ownerId}</span>
-                ) : (
-                  <span className="text-slate-500">нейтральная</span>
-                )}
-              </div>
-              <div>
-                <span className="text-slate-500">Радиус захвата:</span> {pt.captureRadius}
+                <div>
+                  <span className="text-slate-500">Радиус захвата:</span>{" "}
+                  {pt.captureRadius}
+                </div>
               </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
 
       {isDev && (
         <DevelopmentPanel

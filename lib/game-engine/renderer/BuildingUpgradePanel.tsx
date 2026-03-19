@@ -93,7 +93,7 @@ function CastleTrackRow({ name, level, maxLevel, cost, canBuy, onBuy, disabled, 
     <li
       className={`flex items-center justify-between gap-2 rounded border px-3 py-2 ${
         touchFriendly ? "py-3" : "py-2"
-      } border-slate-600 bg-slate-700/40`}
+      } border-slate-600 bg-slate-700/85`}
     >
       <div className="min-w-0 flex-1">
         <div className={`font-medium text-slate-200 ${touchFriendly ? "text-sm" : "text-xs"}`}>{name}</div>
@@ -161,7 +161,7 @@ function UpgradeCard({
           ? "border-l-4 border-l-amber-500 border-emerald-600/50 bg-emerald-900/20"
           : isLocked
             ? "border-slate-600 bg-slate-800/40 opacity-75"
-            : "border-slate-600 bg-slate-700/40"
+            : "border-slate-600 bg-slate-700/85"
       }`}
     >
       <div className="flex items-center justify-between gap-3">
@@ -339,7 +339,7 @@ export function BuildingUpgradePanel({
   }
 
   const panelClass =
-    "fixed z-20 flex flex-col overflow-y-auto border border-slate-600 bg-slate-800/98 shadow-xl touch-pan-y " +
+    "fixed z-20 flex flex-col overflow-y-auto border border-slate-600 bg-slate-800 shadow-xl touch-pan-y " +
     (isMobile
       ? "min-h-[200px] p-4 gap-4 rounded-t-xl"
       : "min-w-[200px] max-w-[300px] p-3 gap-3 rounded-lg");
@@ -480,7 +480,7 @@ export function BuildingUpgradePanel({
             </div>
             {isOwnBuilding && onRepairBarrack && (
               <div
-                className={`flex items-center justify-between gap-2 rounded border border-slate-600 bg-slate-700/40 px-3 ${
+                className={`flex items-center justify-between gap-2 rounded border border-slate-600 bg-slate-700/85 px-3 ${
                   touchFriendly ? "py-3 min-h-[44px]" : "py-2"
                 }`}
               >
@@ -511,7 +511,7 @@ export function BuildingUpgradePanel({
             )}
             {isOwnBuilding && onBuyBarrackWarrior && barrackBuyCapacity && (
               <div
-                className={`flex items-center justify-between gap-2 rounded border border-slate-600 bg-slate-700/40 px-3 ${
+                className={`flex items-center justify-between gap-2 rounded border border-slate-600 bg-slate-700/85 px-3 ${
                   touchFriendly ? "py-3 min-h-[44px]" : "py-2"
                 }`}
               >
