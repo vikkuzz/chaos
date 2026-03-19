@@ -43,6 +43,8 @@ export interface BuildingUpgradePanelProps {
   onCastCastleSpell?: (playerId: string, castleId: string, spellIndex: 0 | 1) => boolean;
   onSummonHero?: (playerId: string, barrackId: string, heroTypeId: string) => boolean;
   aliveHeroTypeIds?: Set<string>;
+  /** Кастомные имена героев для бараков этого игрока (heroTypeId -> name). */
+  heroNames?: Record<string, string>;
   barrackHeroCooldowns?: Record<string, number>;
   onClose: () => void;
   gameOver?: boolean;
@@ -280,6 +282,7 @@ export function BuildingUpgradePanel({
   onSummonHero,
   aliveHeroTypeIds = new Set(),
   barrackHeroCooldowns = {},
+  heroNames,
   onClose,
   gameOver,
 }: BuildingUpgradePanelProps) {
@@ -567,11 +570,12 @@ export function BuildingUpgradePanel({
                           : (playerState?.gold ?? 0) < Game.HERO_SUMMON_COST
                             ? `Нужно 🪙${Game.HERO_SUMMON_COST}`
                             : `Вызвать за 🪙${Game.HERO_SUMMON_COST}`;
-                    const names: Record<string, string> = {
+                    const defaultNames: Record<string, string> = {
                       "hero-1": "Нурик",
                       "hero-2": "Паша",
                       "hero-3": "Витя",
                     };
+                    const names = heroNames ? { ...defaultNames, ...heroNames } : defaultNames;
                     return (
                       <button
                         key={heroTypeId}

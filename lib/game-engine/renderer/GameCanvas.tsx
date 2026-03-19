@@ -76,6 +76,8 @@ export function GameCanvas({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+  const panZoomRef = useRef({ pan: { x: 0, y: 0 }, zoom: 1 });
+  panZoomRef.current = { pan, zoom };
   const isPanningRef = useRef(false);
   const lastPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const pointerDownTimeRef = useRef<number>(0);
@@ -169,6 +171,63 @@ export function GameCanvas({
   const [autoDevelopmentEnabled, setAutoDevelopmentEnabledState] = useState(true);
 
   const BUILDINGS_STORAGE_KEY = "rts-buildings";
+  const HERO_NAMES_STORAGE_KEY = "rts-hero-names";
+
+  const DEFAULT_HERO_NAMES: Record<string, string> = {
+    "hero-1": "Нурик",
+    "hero-2": "Паша",
+    "hero-3": "Витя",
+  };
+
+  const [showHeroNamesModal, setShowHeroNamesModal] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return !window.localStorage.getItem("rts-hero-names-modal-dismissed");
+    } catch {
+      return true;
+    }
+  });
+
+  const [heroNamesByPlayer, setHeroNamesByPlayer] = useState<
+    Record<string, Record<string, string>>
+  >(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = window.localStorage.getItem(HERO_NAMES_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, Record<string, string>>;
+        if (parsed && typeof parsed === "object") return parsed;
+      }
+    } catch {
+      // ignore
+    }
+    return {};
+  });
+
+  const [heroNameInputs, setHeroNameInputs] = useState(DEFAULT_HERO_NAMES);
+
+  const saveHeroNames = useCallback(
+    (playerId: string) => {
+      const next = { ...heroNamesByPlayer };
+      next[playerId] = { ...DEFAULT_HERO_NAMES, ...heroNameInputs };
+      setHeroNamesByPlayer(next);
+      setShowHeroNamesModal(false);
+      try {
+        window.localStorage.setItem("rts-hero-names-modal-dismissed", "1");
+        window.localStorage.setItem(HERO_NAMES_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+    },
+    [heroNamesByPlayer, heroNameInputs],
+  );
+
+  useEffect(() => {
+    if (showHeroNamesModal && selectedPlayerId) {
+      const existing = heroNamesByPlayer[selectedPlayerId];
+      setHeroNameInputs(existing ? { ...DEFAULT_HERO_NAMES, ...existing } : { ...DEFAULT_HERO_NAMES });
+    }
+  }, [showHeroNamesModal, selectedPlayerId]);
 
   const toggleAutoDevelopment = useCallback(() => {
     setAutoDevelopmentEnabledState((v) => {
@@ -250,10 +309,8 @@ export function GameCanvas({
     if (!overlay) return;
     const prevent = (e: Event) => e.preventDefault();
     overlay.addEventListener("touchmove", prevent, { passive: false });
-    overlay.addEventListener("wheel", prevent, { passive: false });
     return () => {
       overlay.removeEventListener("touchmove", prevent);
-      overlay.removeEventListener("wheel", prevent);
     };
   }, []);
 
@@ -501,6 +558,29 @@ export function GameCanvas({
       y: localY / scale + vp.panY,
     };
   };
+
+  useEffect(() => {
+    const overlay = overlayCanvasRef.current;
+    if (!overlay) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const { pan: p, zoom: z } = panZoomRef.current;
+      const rect = overlay.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const { x: mapX, y: mapY } = getGameCoordsFromClient(centerX, centerY);
+      const factor = e.deltaY > 0 ? 0.9 : 1.1;
+      const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z * factor));
+      const scale = getScale();
+      const newScale = scale * (newZoom / z);
+      const dx = (mapX - p.x) * (1 - newScale / scale);
+      const dy = (mapY - p.y) * (1 - newScale / scale);
+      setPan((prev) => clampPan({ x: prev.x + dx, y: prev.y + dy }));
+      setZoom(newZoom);
+    };
+    overlay.addEventListener("wheel", onWheel, { passive: false });
+    return () => overlay.removeEventListener("wheel", onWheel);
+  }, [getGameCoordsFromClient, getScale, clampPan]);
 
   const getGameCoords = (event: MouseEvent<HTMLCanvasElement>): { x: number; y: number } =>
     getGameCoordsFromClient(event.clientX, event.clientY);
@@ -982,6 +1062,51 @@ export function GameCanvas({
       className={`flex min-h-0 flex-1 flex-col md:flex-row gap-2 md:gap-3 ${className ?? ""}`.trim()}
       style={style}
     >
+      {showHeroNamesModal && mode === "local" && selectedPlayerId && config.heroTypes && Object.keys(config.heroTypes).length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-xl bg-slate-800 p-6 shadow-xl border border-slate-600">
+            <p className="mb-4 text-slate-200 text-sm">
+              В игре есть герои, ты можешь дать им имена, если хочешь:
+            </p>
+            <div className="space-y-3 mb-6">
+              {(["hero-1", "hero-2", "hero-3"] as const).map((heroTypeId) => {
+                if (!config.heroTypes![heroTypeId]) return null;
+                return (
+                  <label key={heroTypeId} className="block">
+                    <span className="block text-xs text-slate-500 mb-1">
+                      {(heroTypeId === "hero-1" && "Первый герой") ||
+                        (heroTypeId === "hero-2" && "Второй герой") ||
+                        (heroTypeId === "hero-3" && "Третий герой")}
+                    </span>
+                    <input
+                      type="text"
+                      value={heroNameInputs[heroTypeId] ?? DEFAULT_HERO_NAMES[heroTypeId]}
+                      onChange={(e) =>
+                        setHeroNameInputs((prev) => ({
+                          ...prev,
+                          [heroTypeId]: e.target.value.trim() || DEFAULT_HERO_NAMES[heroTypeId],
+                        }))
+                      }
+                      placeholder={DEFAULT_HERO_NAMES[heroTypeId]}
+                      className="w-full rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 text-slate-200 placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+                  </label>
+                );
+              })}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => saveHeroNames(selectedPlayerId)}
+                className="rounded-lg bg-amber-500 px-4 py-2 font-medium text-slate-900 hover:bg-amber-400 transition"
+              >
+                Готово
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-1 flex-col gap-2 min-w-0">
       {isDev && (
       <div className="flex flex-shrink-0 flex-wrap items-center gap-2 sm:gap-3 rounded-lg bg-slate-800/90 px-2 sm:px-3 py-2 text-xs sm:text-sm min-h-[3.5rem] sm:min-h-[4rem]">
@@ -1219,23 +1344,6 @@ export function GameCanvas({
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={() => handlePointerUp(0, 0, true)}
-          onWheel={(e) => {
-            e.preventDefault();
-            const canvas = overlayCanvasRef.current;
-            if (!canvas) return;
-            const rect = canvas.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            const { x: mapX, y: mapY } = getGameCoordsFromClient(centerX, centerY);
-            const factor = e.deltaY > 0 ? 0.9 : 1.1;
-            const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom * factor));
-            const scale = getScale();
-            const newScale = scale * (newZoom / zoom);
-            const dx = (mapX - pan.x) * (1 - newScale / scale);
-            const dy = (mapY - pan.y) * (1 - newScale / scale);
-            setZoom(newZoom);
-            setPan((p) => clampPan({ x: p.x + dx, y: p.y + dy }));
-          }}
           onTouchStart={(e: TouchEvent<HTMLCanvasElement>) => {
             if (e.touches.length === 2) {
               const dx = e.touches[1].clientX - e.touches[0].clientX;
@@ -1349,6 +1457,7 @@ export function GameCanvas({
             barrackRepairCooldownMs={barrackRepairCooldownMs}
             barrackHeroCooldowns={barrackHeroCooldowns}
             aliveHeroTypeIds={aliveHeroTypeIds}
+            heroNames={heroNamesByPlayer[entity.ownerId]}
             onSummonHero={summonHero}
             position={{ left, top }}
             bounds={{ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }}
