@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { gameParams } from "./data/gameParams";
 import { supportConfig } from "./config/support";
+import { SocialLinks } from "./components/SocialLinks";
+import { socialLinks } from "./config/social";
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -347,7 +349,7 @@ export default function HomePage() {
       </section>
 
       {/* Поддержать проект */}
-      <section className="py-12 sm:py-16 bg-slate-800/30">
+      <section className="py-12 sm:py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 text-center">
           <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
             Поддержать проект
@@ -388,6 +390,7 @@ export default function HomePage() {
           >
             RTS Game
           </Link>
+          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
           <nav className="flex flex-wrap gap-4 sm:gap-6 justify-center" aria-label="Ссылки в подвале">
             <Link
               href="/"
@@ -422,6 +425,10 @@ export default function HomePage() {
               </span>
             )}
           </nav>
+          {socialLinks.length > 0 && (
+            <SocialLinks compact className="gap-3" />
+          )}
+          </div>
         </div>
         <p className="mx-auto max-w-4xl px-4 sm:px-6 mt-4 text-center text-slate-500 text-sm">
           © {new Date().getFullYear()} RTS Game. Браузерная стратегия в реальном
