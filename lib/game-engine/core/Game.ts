@@ -23,6 +23,7 @@ import {
   getBuildingUpgradeMultipliersFromLevels,
   getBarrackUpgradeCost,
   getBarrackLevelMultipliers,
+  getBarrackSpawnCountAndBuyCapacity,
   getCastleUpgradeCost,
   getTrackUpgradeCost,
   getMaxTrackLevel,
@@ -975,15 +976,20 @@ export class Game {
       } else if (entity.kind === "tower") {
         (entity as Tower).applyUpgrades(globalMult.buildingHp, globalMult.towerDamage);
       } else if (entity.kind === "barrack") {
+        const barrack = entity as Barrack;
         const barrackLevel = this.barrackLevels.get(entity.id) ?? 0;
         const barrackMult = getBarrackLevelMultipliers(barrackLevel);
-        (entity as Barrack).applyUpgrades(
+        const { spawnCount, buyCapacity } = getBarrackSpawnCountAndBuyCapacity(
+          barrack.warriorTypeIds,
+          barrackLevel,
+        );
+        barrack.applyUpgrades(
           globalMult.buildingHp,
           barrackMult.hp,
           barrackMult.attack,
           barrackMult.spawnSpeed,
-          barrackMult.spawnCount,
-          barrackMult.buyCapacity,
+          spawnCount,
+          buyCapacity,
         );
       }
     }
@@ -998,14 +1004,18 @@ export class Game {
     const globalMult = getBuildingUpgradeMultipliersFromLevels(ps);
     const barrackLevel = this.barrackLevels.get(barrackId) ?? 0;
     const barrackMult = getBarrackLevelMultipliers(barrackLevel);
+    const { spawnCount, buyCapacity } = getBarrackSpawnCountAndBuyCapacity(
+      barrack.warriorTypeIds,
+      barrackLevel,
+    );
 
     barrack.applyUpgrades(
       globalMult.buildingHp,
       barrackMult.hp,
       barrackMult.attack,
       barrackMult.spawnSpeed,
-      barrackMult.spawnCount,
-      barrackMult.buyCapacity,
+      spawnCount,
+      buyCapacity,
     );
   }
 

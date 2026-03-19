@@ -36,21 +36,34 @@ export function getBarrackUpgradeCost(level: number): number | null {
   return BARRACK_UPGRADE_COSTS[level];
 }
 
-/** Множители барака от уровня (0..3). При увеличении уровня: +юниты, +HP, +атака, -кулдаун спавна, +докупки. */
+/** Уникальные типы воинов в порядке первого вхождения в паттерне барака. */
+export function getUniqueWarriorTypeIdsInOrder(warriorTypeIds: readonly string[]): string[] {
+  return [...new Set(warriorTypeIds)];
+}
+
+/**
+ * Размер волны спавна и лимит докупки: длина паттерна + за каждый уровень барака по одному слоту на каждый уникальный тип.
+ */
+export function getBarrackSpawnCountAndBuyCapacity(
+  warriorTypeIds: readonly string[],
+  level: number,
+): { spawnCount: number; buyCapacity: number } {
+  const patternLen = warriorTypeIds.length;
+  const uniqueCount = Math.max(1, new Set(warriorTypeIds).size);
+  const spawnCount = Math.max(1, patternLen + level * uniqueCount);
+  return { spawnCount, buyCapacity: spawnCount };
+}
+
+/** Множители барака от уровня (0..3): HP, атака, скорость спавна. Число юнитов за цикл — через getBarrackSpawnCountAndBuyCapacity. */
 export function getBarrackLevelMultipliers(level: number): {
   hp: number;
   attack: number;
   spawnSpeed: number;
-  spawnCount: number;
-  buyCapacity: number;
 } {
   const hp = 1 + 0.15 * level;
   const attack = 1 + 0.15 * level;
   const spawnSpeed = Math.pow(0.9, level);
-  const baseSpawn = 5; // 3 воина + 2 лучника за цикл
-  const spawnCount = baseSpawn + level;
-  const buyCapacity = baseSpawn + level;
-  return { hp, attack, spawnSpeed, spawnCount, buyCapacity };
+  return { hp, attack, spawnSpeed };
 }
 
 export function getRangedDamageMult(level: number): number {

@@ -1520,7 +1520,7 @@ export function GameCanvas({
           <div className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden">
             <div
               ref={viewportContainerRef}
-              className="relative shrink-0 w-full h-full min-h-0"
+              className="relative shrink-0 w-full h-full min-h-0 overflow-hidden rounded-lg border-2 border-slate-500/80 shadow-lg shadow-black/40"
               style={{ aspectRatio: "1", maxWidth: "100%", maxHeight: "100%" }}
             >
               <div className="absolute bottom-2 right-2 z-10 flex flex-col gap-1 rounded-lg bg-slate-800/90 p-1 shadow-lg md:bottom-3 md:right-3">

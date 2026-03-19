@@ -1,5 +1,6 @@
 import { Entity, EntityProps } from "../Entity";
 import { RouteManager } from "../../pathfinding/RouteManager";
+import { getUniqueWarriorTypeIdsInOrder } from "../../upgrades/definitions";
 import { Warrior } from "../units/Warrior";
 import { WarriorStats, WarriorTypeId } from "../units/WarriorTypes";
 
@@ -28,6 +29,8 @@ export class Barrack extends Entity {
   public readonly baseMaxHp: number;
   public readonly baseSpawnIntervalMs: number;
   public readonly warriorTypeIds: readonly WarriorTypeId[];
+  /** Уникальные типы в порядке первого вхождения — хвост волны при апгрейде барака. */
+  public readonly uniqueWarriorTypeIds: readonly WarriorTypeId[];
   public readonly routeManager: RouteManager;
 
   public readonly attackRange: number;
@@ -64,6 +67,7 @@ export class Barrack extends Entity {
     this.baseMaxHp = props.maxHp;
     this.baseSpawnIntervalMs = props.spawnIntervalMs;
     this.warriorTypeIds = props.warriorTypeIds;
+    this.uniqueWarriorTypeIds = getUniqueWarriorTypeIdsInOrder(props.warriorTypeIds);
     this.resolveStatsForType = props.resolveStatsForType;
     this.routeManager = props.routeManager ?? new RouteManager();
     this.onSpawnWarrior = props.onSpawnWarrior;
@@ -139,7 +143,13 @@ export class Barrack extends Entity {
    * @param spawnIndex — индекс в текущем цикле (0..spawnCount-1), для смещения по кругу.
    */
   private spawnUnit(spawnIndex: number): void {
-    const typeId = this.warriorTypeIds[spawnIndex % this.warriorTypeIds.length];
+    const baseLen = this.warriorTypeIds.length;
+    const typeId =
+      spawnIndex < baseLen
+        ? this.warriorTypeIds[spawnIndex]
+        : (this.uniqueWarriorTypeIds[
+            (spawnIndex - baseLen) % Math.max(1, this.uniqueWarriorTypeIds.length)
+          ] ?? this.warriorTypeIds[0]);
     const stats = this.resolveStatsForType(this.ownerId, typeId);
     const position = this.getSpawnPosition(spawnIndex);
 
@@ -179,8 +189,8 @@ export class Barrack extends Entity {
    * @param barrackHpMult — множитель HP от уровня барака
    * @param barrackAttackMult — множитель атаки от уровня барака
    * @param spawnSpeedMult — множитель скорости спавна (0.9^level)
-   * @param spawnCount — число воинов за цикл (2 + level)
-   * @param buyCapacity — макс. слотов докупки (2 + level)
+   * @param spawnCount — число воинов за цикл (паттерн + уровень × число уникальных типов)
+   * @param buyCapacity — макс. слотов докупки (как spawnCount)
    */
   applyUpgrades(
     globalHpMult: number,
