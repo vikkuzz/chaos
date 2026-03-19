@@ -1,5 +1,6 @@
-import { Renderer } from "./Renderer";
+import { Renderer, type FogData } from "./Renderer";
 import { GameStateSnapshot, type EntitySnapshot, type SpellEffect } from "../core/Game";
+import { isPointInCells, FOG_CELL_SIZE } from "../fog/FogOfWar";
 
 export interface ViewportState {
   panX: number;
@@ -44,10 +45,17 @@ export class CanvasRenderer implements Renderer {
     this.canvas.height = height;
   }
 
-  render(state: GameStateSnapshot, viewport?: ViewportState | null, currentPlayerId?: string | null): void {
+  render(
+    state: GameStateSnapshot,
+    viewport?: ViewportState | null,
+    currentPlayerId?: string | null,
+    fogData?: FogData | null,
+  ): void {
     const { ctx } = this;
     const w = this.canvas.width;
     const h = this.canvas.height;
+    const mapW = viewport?.mapWidth ?? 998;
+    const mapH = viewport?.mapHeight ?? 998;
 
     ctx.clearRect(0, 0, w, h);
 
@@ -59,25 +67,90 @@ export class CanvasRenderer implements Renderer {
       ctx.setTransform(scale, 0, 0, scale, -viewport.panX * scale, -viewport.panY * scale);
     }
 
-    // Нейтральные точки рисуем первыми (под юнитами), полупрозрачные
+    const useFog = fogData && currentPlayerId;
+
+    // Нейтральные точки
     for (const pt of state.neutralPoints ?? []) {
-      this.drawNeutralPoint(pt);
+      if (useFog) {
+        const inVisible = isPointInCells(pt.position.x, pt.position.y, fogData.visibleCells, FOG_CELL_SIZE);
+        const inRevealed = isPointInCells(pt.position.x, pt.position.y, fogData.revealedCells, FOG_CELL_SIZE);
+        if (!inVisible && !inRevealed) continue;
+        this.drawNeutralPoint(pt, inVisible ? 1 : 0.4);
+      } else {
+        this.drawNeutralPoint(pt, 1);
+      }
     }
 
+    // Сущности: свои всегда, чужие — только в visible
     for (const entity of state.entities) {
       if (!entity.isAlive) continue;
-      this.drawEntity(entity, currentPlayerId);
+      const isOwn = entity.ownerId === currentPlayerId;
+      if (useFog && !isOwn) {
+        const inVisible = isPointInCells(entity.position.x, entity.position.y, fogData.visibleCells, FOG_CELL_SIZE);
+        if (!inVisible) continue;
+      }
+      this.drawEntity(entity, currentPlayerId, 1);
     }
 
-    this.drawAttackEffects(state.attackEffects ?? [], state.timeMs);
-    this.drawSpellEffects(state.spellEffects ?? [], state.timeMs);
+    // Last-known враги в сером fog
+    if (useFog) {
+      for (const entity of fogData.lastKnownEnemies.values()) {
+        const inVisible = isPointInCells(entity.position.x, entity.position.y, fogData.visibleCells, FOG_CELL_SIZE);
+        if (inVisible) continue;
+        const inRevealed = isPointInCells(entity.position.x, entity.position.y, fogData.revealedCells, FOG_CELL_SIZE);
+        if (!inRevealed) continue;
+        this.drawEntity(entity, currentPlayerId, 0.5, true);
+      }
+    }
+
+    this.drawAttackEffects(
+      state.attackEffects ?? [],
+      state.timeMs,
+      useFog ? fogData! : null,
+      mapW,
+      mapH,
+    );
+    this.drawSpellEffects(state.spellEffects ?? [], state.timeMs, useFog ? fogData! : null, mapW, mapH);
+
+    // Fog overlay
+    if (useFog) {
+      this.drawFogOverlay(mapW, mapH, fogData);
+    }
 
     if (viewport) {
       ctx.restore();
     }
   }
 
-  private drawAttackEffects(effects: readonly { from: { x: number; y: number }; to: { x: number; y: number }; timeMs: number }[], currentTimeMs: number): void {
+  private drawFogOverlay(mapW: number, mapH: number, fog: FogData): void {
+    const { ctx } = this;
+    const cellSize = FOG_CELL_SIZE;
+    const cols = Math.ceil(mapW / cellSize);
+    const rows = Math.ceil(mapH / cellSize);
+
+    ctx.save();
+    for (let cy = 0; cy < rows; cy++) {
+      for (let cx = 0; cx < cols; cx++) {
+        const key = `${cx},${cy}`;
+        if (fog.visibleCells.has(key)) continue;
+        const x = cx * cellSize;
+        const y = cy * cellSize;
+        ctx.fillStyle = fog.revealedCells.has(key)
+          ? "rgba(0, 0, 0, 0.5)"
+          : "rgba(0, 0, 0, 0.9)";
+        ctx.fillRect(x, y, cellSize, cellSize);
+      }
+    }
+    ctx.restore();
+  }
+
+  private drawAttackEffects(
+    effects: readonly { from: { x: number; y: number }; to: { x: number; y: number }; timeMs: number }[],
+    currentTimeMs: number,
+    fogData?: FogData | null,
+    _mapW?: number,
+    _mapH?: number,
+  ): void {
     const { ctx } = this;
     const durationMs = 180;
     const travelMs = 60;
@@ -85,6 +158,11 @@ export class CanvasRenderer implements Renderer {
     for (const effect of effects) {
       const age = currentTimeMs - effect.timeMs;
       if (age >= durationMs) continue;
+      if (fogData) {
+        const fromVisible = isPointInCells(effect.from.x, effect.from.y, fogData.visibleCells, FOG_CELL_SIZE);
+        const toVisible = isPointInCells(effect.to.x, effect.to.y, fogData.visibleCells, FOG_CELL_SIZE);
+        if (!fromVisible && !toVisible) continue;
+      }
 
       const progress = Math.min(1, age / travelMs);
       const fade = 1 - (age / durationMs) * (age / durationMs);
@@ -116,7 +194,13 @@ export class CanvasRenderer implements Renderer {
     }
   }
 
-  private drawSpellEffects(effects: readonly SpellEffect[], currentTimeMs: number): void {
+  private drawSpellEffects(
+    effects: readonly SpellEffect[],
+    currentTimeMs: number,
+    fogData?: FogData | null,
+    _mapW?: number,
+    _mapH?: number,
+  ): void {
     const { ctx } = this;
     const durationMs = 800;
     const expandMs = 350;
@@ -124,6 +208,15 @@ export class CanvasRenderer implements Renderer {
     for (const effect of effects) {
       const age = currentTimeMs - effect.timeMs;
       if (age >= durationMs) continue;
+      if (fogData) {
+        const posVisible = isPointInCells(
+          effect.position.x,
+          effect.position.y,
+          fogData.visibleCells,
+          FOG_CELL_SIZE,
+        );
+        if (!posVisible) continue;
+      }
 
       const expandProgress = Math.min(1, age / expandMs);
       const fade = 1 - (age / durationMs) * (age / durationMs);
@@ -170,7 +263,10 @@ export class CanvasRenderer implements Renderer {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
-  private drawNeutralPoint(pt: { position: { x: number; y: number }; radius: number; captureRadius?: number; ownerId: string | null }): void {
+  private drawNeutralPoint(
+    pt: { position: { x: number; y: number }; radius: number; captureRadius?: number; ownerId: string | null },
+    alpha = 1,
+  ): void {
     const { ctx } = this;
     const { x, y } = pt.position;
     const r = pt.radius;
@@ -181,6 +277,7 @@ export class CanvasRenderer implements Renderer {
       : "#6b7280";
 
     ctx.save();
+    ctx.globalAlpha = alpha;
     ctx.fillStyle = this.hexToRgba(baseColor, 0.18);
     ctx.strokeStyle = this.hexToRgba(baseColor, 0.45);
     ctx.lineWidth = 1.5;
@@ -200,8 +297,15 @@ export class CanvasRenderer implements Renderer {
     ctx.restore();
   }
 
-  private drawEntity(entity: EntitySnapshot, currentPlayerId?: string | null): void {
+  private drawEntity(
+    entity: EntitySnapshot,
+    currentPlayerId?: string | null,
+    alpha = 1,
+    simplified = false,
+  ): void {
     const { ctx } = this;
+    ctx.save();
+    ctx.globalAlpha = alpha;
     const isCurrentPlayerBuilding =
       currentPlayerId &&
       (entity.kind === "castle" || entity.kind === "barrack" || entity.kind === "tower") &&
@@ -233,6 +337,13 @@ export class CanvasRenderer implements Renderer {
     const { x, y } = entity.position;
     const r = entity.radius;
 
+    if (simplified) {
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
     if (entity.kind === "warrior") {
       if (entity.isHero) {
         // Герой — звёздчатая форма с золотой обводкой
@@ -318,5 +429,6 @@ export class CanvasRenderer implements Renderer {
       ctx.strokeText(text, entity.position.x, levelY);
       ctx.fillText(text, entity.position.x, levelY);
     }
+    ctx.restore();
   }
 }

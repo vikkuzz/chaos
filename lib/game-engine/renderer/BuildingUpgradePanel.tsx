@@ -568,9 +568,9 @@ export function BuildingUpgradePanel({
                             ? `Нужно 🪙${Game.HERO_SUMMON_COST}`
                             : `Вызвать за 🪙${Game.HERO_SUMMON_COST}`;
                     const names: Record<string, string> = {
-                      "hero-1": "Герой 1",
-                      "hero-2": "Герой 2",
-                      "hero-3": "Герой 3",
+                      "hero-1": "Нурик",
+                      "hero-2": "Паша",
+                      "hero-3": "Витя",
                     };
                     return (
                       <button

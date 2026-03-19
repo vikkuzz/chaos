@@ -10,7 +10,13 @@ import {
   CanvasRenderer,
   type ViewportState,
 } from "../renderer/CanvasRenderer";
-import type { GameStateSnapshot } from "../core/Game";
+import type { GameStateSnapshot, EntitySnapshot } from "../core/Game";
+import {
+  getVisionSources,
+  computeVisibleCells,
+  updateLastKnownEnemies,
+  FOG_CELL_SIZE,
+} from "../fog/FogOfWar";
 
 export type GameEngineMode = "local" | "multiplayer";
 
@@ -23,6 +29,8 @@ export interface UseGameEngineOptions {
   multiplayerGameState?: GameStateSnapshot | null;
   /** При mode=local — ID игрока-человека (выбранный в UI). Для авторазвития: при отключении не тратит только он. */
   localHumanPlayerId?: string | null;
+  /** Включить туман войны (чёрный + серый). По умолчанию true. */
+  fogOfWarEnabled?: boolean;
 }
 
 export interface ExtraBuilding {
@@ -60,6 +68,8 @@ export interface UseGameEngineResult {
   setSpawningEnabled: (enabled: boolean) => void;
   setAutoDevelopmentEnabled: (enabled: boolean) => void;
   isAutoDevelopmentEnabled: () => boolean;
+  setFogOfWarEnabled: (enabled: boolean) => void;
+  isFogOfWarEnabled: () => boolean;
 }
 
 const EXTRA_BUILDINGS_KEY = "rts-extra-buildings";
@@ -83,6 +93,11 @@ export function useGameEngine(
   const multiplayerPlayerId = options?.multiplayerPlayerId;
   const multiplayerGameState = options?.multiplayerGameState;
   const localHumanPlayerId = options?.localHumanPlayerId;
+  const fogOfWarEnabledRef = useRef(options?.fogOfWarEnabled ?? true);
+  fogOfWarEnabledRef.current = options?.fogOfWarEnabled ?? true;
+
+  const revealedCellsRef = useRef<Set<string>>(new Set());
+  const lastKnownEnemiesRef = useRef<Map<string, EntitySnapshot>>(new Map());
 
   const [game, setGame] = useState<Game | null>(null);
   const [state, setState] = useState<GameStateSnapshot | null>(null);
@@ -126,12 +141,31 @@ export function useGameEngine(
         const vp = viewportRef?.current;
         const st = stateRef.current;
         if (st && canvas) {
+          const currentId = currentPlayerIdRef.current;
+          let fogData: { visibleCells: Set<string>; revealedCells: Set<string>; lastKnownEnemies: Map<string, EntitySnapshot> } | null = null;
+          if (fogOfWarEnabledRef.current && currentId) {
+            const sources = getVisionSources(st.entities, currentId);
+            const visible = computeVisibleCells(sources, config.mapWidth, config.mapHeight, FOG_CELL_SIZE);
+            revealedCellsRef.current = new Set([...revealedCellsRef.current, ...visible]);
+            lastKnownEnemiesRef.current = updateLastKnownEnemies(
+              st.entities,
+              currentId,
+              visible,
+              FOG_CELL_SIZE,
+              lastKnownEnemiesRef.current,
+            );
+            fogData = {
+              visibleCells: visible,
+              revealedCells: revealedCellsRef.current,
+              lastKnownEnemies: lastKnownEnemiesRef.current,
+            };
+          }
           if (vp && vp.width > 0 && vp.height > 0) {
             renderer.resize(vp.width, vp.height);
-            renderer.render(st, vp, currentPlayerIdRef.current);
+            renderer.render(st, vp, currentId, fogData);
           } else {
             renderer.resize(config.mapWidth, config.mapHeight);
-            renderer.render(st, undefined, currentPlayerIdRef.current);
+            renderer.render(st, undefined, currentId, fogData);
           }
         }
         rafId = requestAnimationFrame(renderLoop);
@@ -211,13 +245,32 @@ export function useGameEngine(
     const loop = new GameLoop((deltaTimeMs) => {
       engine.update(deltaTimeMs);
       const snapshot = engine.getStateSnapshot();
+      const currentId = currentPlayerIdRef.current;
+      let fogData: { visibleCells: Set<string>; revealedCells: Set<string>; lastKnownEnemies: Map<string, EntitySnapshot> } | null = null;
+      if (fogOfWarEnabledRef.current && currentId) {
+        const sources = getVisionSources(snapshot.entities, currentId);
+        const visible = computeVisibleCells(sources, config.mapWidth, config.mapHeight, FOG_CELL_SIZE);
+        revealedCellsRef.current = new Set([...revealedCellsRef.current, ...visible]);
+        lastKnownEnemiesRef.current = updateLastKnownEnemies(
+          snapshot.entities,
+          currentId,
+          visible,
+          FOG_CELL_SIZE,
+          lastKnownEnemiesRef.current,
+        );
+        fogData = {
+          visibleCells: visible,
+          revealedCells: revealedCellsRef.current,
+          lastKnownEnemies: lastKnownEnemiesRef.current,
+        };
+      }
       const vp = viewportRef?.current;
       if (vp && vp.width > 0 && vp.height > 0) {
         renderer.resize(vp.width, vp.height);
-        renderer.render(snapshot, vp, currentPlayerIdRef.current);
+        renderer.render(snapshot, vp, currentId, fogData);
       } else {
         renderer.resize(config.mapWidth, config.mapHeight);
-        renderer.render(snapshot, undefined, currentPlayerIdRef.current);
+        renderer.render(snapshot, undefined, currentId, fogData);
       }
       if (snapshot.gameOver) {
         loop.stop();
@@ -251,6 +304,16 @@ export function useGameEngine(
       game.setHumanPlayerIds(new Set(localHumanPlayerId ? [localHumanPlayerId] : []));
     }
   }, [mode, game, localHumanPlayerId]);
+
+  const prevFogPlayerIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const nextId = mode === "multiplayer" ? multiplayerPlayerId ?? null : localHumanPlayerId ?? null;
+    if (prevFogPlayerIdRef.current !== nextId) {
+      prevFogPlayerIdRef.current = nextId;
+      revealedCellsRef.current = new Set();
+      lastKnownEnemiesRef.current = new Map();
+    }
+  }, [mode, multiplayerPlayerId, localHumanPlayerId]);
 
   const setBarrackRoute = useCallback((barrackId: string, waypoints: { x: number; y: number }[]) => {
     if (mode === "multiplayer") {
@@ -493,6 +556,14 @@ export function useGameEngine(
     return gameRef.current?.isAutoDevelopmentEnabled() ?? true;
   }, []);
 
+  const setFogOfWarEnabled = useCallback((enabled: boolean): void => {
+    fogOfWarEnabledRef.current = enabled;
+  }, []);
+
+  const isFogOfWarEnabled = useCallback((): boolean => {
+    return fogOfWarEnabledRef.current;
+  }, []);
+
   return {
     game,
     state,
@@ -512,5 +583,7 @@ export function useGameEngine(
     setSpawningEnabled,
     setAutoDevelopmentEnabled,
     isAutoDevelopmentEnabled,
+    setFogOfWarEnabled,
+    isFogOfWarEnabled,
   };
 }

@@ -9,6 +9,8 @@ export interface DevelopmentPanelProps {
   selectedPlayerId: string | null;
   onSelectPlayer: (playerId: string) => void;
   gameOver?: boolean;
+  fogOfWarEnabled?: boolean;
+  onToggleFogOfWar?: () => void;
 }
 
 export function DevelopmentPanel({
@@ -17,12 +19,26 @@ export function DevelopmentPanel({
   selectedPlayerId,
   onSelectPlayer,
   gameOver,
+  fogOfWarEnabled = true,
+  onToggleFogOfWar,
 }: DevelopmentPanelProps) {
   const ps = selectedPlayerId ? playerStates[selectedPlayerId] : null;
 
   return (
     <div className="flex min-h-0 max-h-full flex-shrink-0 flex-col gap-3 overflow-y-auto rounded-lg bg-slate-800/95 p-2 sm:p-3 text-xs sm:text-sm w-full md:w-[240px]">
       <h3 className="font-semibold text-amber-400">Развитие</h3>
+
+      {onToggleFogOfWar && (
+        <label className="flex cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            checked={fogOfWarEnabled}
+            onChange={() => onToggleFogOfWar?.()}
+            className="rounded"
+          />
+          <span className="text-slate-300">Туман войны</span>
+        </label>
+      )}
 
       <div>
         <span className="text-slate-500">Игрок:</span>

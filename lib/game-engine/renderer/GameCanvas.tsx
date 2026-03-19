@@ -88,7 +88,8 @@ export function GameCanvas({
     () => config.players[0]?.id ?? null,
   );
 
-  const { state, playerId, setBarrackRoute, setBuildingPosition, addBarrack, addTower, addNeutralPoint, removeNeutralPoint, buyCastleUpgrade, buyBarrackUpgrade, buyBarrackWarrior, repairBarrack, castCastleSpell, summonHero, setSpawningEnabled, setAutoDevelopmentEnabled } =
+  const [fogOfWarEnabled, setFogOfWarEnabledState] = useState(true);
+  const { state, playerId, setBarrackRoute, setBuildingPosition, addBarrack, addTower, addNeutralPoint, removeNeutralPoint, buyCastleUpgrade, buyBarrackUpgrade, buyBarrackWarrior, repairBarrack, castCastleSpell, summonHero, setSpawningEnabled, setAutoDevelopmentEnabled, setFogOfWarEnabled } =
     useGameEngine(baseCanvasRef, config, viewportRef, {
       mode,
       socketUrl,
@@ -96,6 +97,7 @@ export function GameCanvas({
       multiplayerPlayerId,
       multiplayerGameState,
       localHumanPlayerId: mode === "local" ? selectedPlayerId : undefined,
+      fogOfWarEnabled,
     });
 
   const defaultPlayer = config.players[0];
@@ -175,6 +177,14 @@ export function GameCanvas({
       return next;
     });
   }, [setAutoDevelopmentEnabled]);
+
+  const toggleFogOfWar = useCallback(() => {
+    setFogOfWarEnabledState((v) => {
+      const next = !v;
+      setFogOfWarEnabled(next);
+      return next;
+    });
+  }, [setFogOfWarEnabled]);
 
   const POINT_RADIUS = 7;
   const POINT_HIT_RADIUS = 10;
@@ -1417,6 +1427,8 @@ export function GameCanvas({
           selectedPlayerId={devPanelPlayerId}
           onSelectPlayer={setDevPanelPlayerId}
           gameOver={state?.gameOver}
+          fogOfWarEnabled={fogOfWarEnabled}
+          onToggleFogOfWar={toggleFogOfWar}
         />
       )}
     </div>

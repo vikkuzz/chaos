@@ -100,6 +100,8 @@ export interface EntitySnapshot {
   spawnRemainingMs?: number;
   spawnIntervalMs?: number;
   spawnCount?: number;
+  /** Радиус обзора для тумана войны (замок, барак, башня, воин, герой). */
+  visionRadius?: number;
 }
 
 export interface GameStateSnapshot {
@@ -606,11 +608,22 @@ export class Game {
         base.maxMana = CASTLE_SPELL.MANA_MAX;
         base.spell1CooldownMs = e.spell1CooldownMs;
         base.spell2CooldownMs = e.spell2CooldownMs;
+        base.visionRadius = 140;
       }
       if (e instanceof Barrack) {
         base.spawnRemainingMs = e.getRemainingSpawnMs();
         base.spawnIntervalMs = e.spawnIntervalMs;
         base.spawnCount = e.spawnCount;
+        base.visionRadius = 80;
+      }
+      if (e instanceof Tower) {
+        base.visionRadius = 100;
+      }
+      if (e instanceof Warrior) {
+        base.visionRadius = e.stats.detectionRadius ?? 80;
+      }
+      if (e instanceof Hero) {
+        base.visionRadius = e.stats.detectionRadius ?? 80;
       }
       return base;
     });
