@@ -1123,12 +1123,17 @@ export function GameCanvas({
             <div
               className="absolute top-2 right-2 z-10 flex items-center gap-1.5 rounded-full bg-slate-900/90 px-3 py-2 shadow-lg ring-1 ring-slate-600/60"
               style={player ? { borderLeft: `3px solid ${player.color}` } : undefined}
-              aria-label={`Золото: ${Math.floor(ps.gold)}`}
+              aria-label={`Золото: ${Math.floor(ps.gold)}, инком ${(ps.goldPerSecond ?? 0).toFixed(1)}/с`}
             >
               <span className="text-base leading-none">🪙</span>
               <span className="font-semibold tabular-nums text-amber-400 text-sm min-w-[2.5rem]">
                 {Math.floor(ps.gold)}
               </span>
+              {(ps.goldPerSecond ?? 0) > 0 && (
+                <span className="tabular-nums text-slate-400 text-xs">
+                  +{(ps.goldPerSecond ?? 0).toFixed(1)}/с
+                </span>
+              )}
             </div>
           );
         })()}

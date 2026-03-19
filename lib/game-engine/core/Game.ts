@@ -42,6 +42,8 @@ export type CastleUpgradeTrack =
 
 export interface PlayerState {
   gold: number;
+  /** Инком золота в секунду (для отображения). */
+  goldPerSecond?: number;
   castleLevel: number;
   rangedLevel: number;
   meleeLevel: number;
@@ -505,7 +507,21 @@ export class Game {
   getStateSnapshot(): GameStateSnapshot {
     const playerStates: Record<string, PlayerState> = {};
     for (const [id, ps] of this.playerStates) {
-      playerStates[id] = { ...ps };
+      let goldPerSecond = 0;
+      if (this.playerHasAnyBuilding(id)) {
+        for (const entity of this.entities.values()) {
+          if (entity.ownerId !== id || !entity.isAlive) continue;
+          if (entity.kind === "castle") goldPerSecond += Game.GOLD_PER_SECOND_CASTLE;
+          else if (entity.kind === "barrack" || entity.kind === "tower")
+            goldPerSecond += Game.GOLD_PER_SECOND_BUILDING;
+        }
+        goldPerSecond += (ps.buildingHpLevel ?? 0) * Game.GOLD_PER_SECOND_PER_BUILDING_HP_LEVEL;
+        for (const pt of this.neutralPoints.values()) {
+          if (pt.ownerId === id && pt.goldIntervalMs > 0)
+            goldPerSecond += (pt.goldPerInterval * 1000) / pt.goldIntervalMs;
+        }
+      }
+      playerStates[id] = { ...ps, goldPerSecond };
     }
     const barrackLevels: Record<string, number> = {};
     for (const [id, level] of this.barrackLevels) {

@@ -52,12 +52,19 @@ export function DevelopmentPanel({
 
       {selectedPlayerId && ps && (
         <>
-          <div className="flex items-center gap-2 rounded bg-slate-700/80 px-2 py-1.5">
-            <span className="text-amber-300">🪙</span>
-            <span className="font-mono font-semibold tabular-nums">
-              {Math.floor(ps.gold)}
-            </span>
-            <span className="text-slate-500">золота</span>
+          <div className="flex flex-col gap-0.5 rounded bg-slate-700/80 px-2 py-1.5">
+            <div className="flex items-center gap-2">
+              <span className="text-amber-300">🪙</span>
+              <span className="font-mono font-semibold tabular-nums">
+                {Math.floor(ps.gold)}
+              </span>
+              <span className="text-slate-500">золота</span>
+            </div>
+            {(ps.goldPerSecond ?? 0) > 0 && (
+              <span className="tabular-nums text-slate-400 text-[10px]">
+                +{(ps.goldPerSecond ?? 0).toFixed(1)} золота/сек
+              </span>
+            )}
           </div>
           <p className="text-xs text-slate-500">
             Кликните по замку или бараку на карте для улучшений
