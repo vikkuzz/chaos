@@ -25,7 +25,7 @@ export function DevelopmentPanel({
   const ps = selectedPlayerId ? playerStates[selectedPlayerId] : null;
 
   return (
-    <div className="flex min-h-0 max-h-full flex-shrink-0 flex-col gap-3 overflow-y-auto rounded-lg bg-slate-800/95 p-2 sm:p-3 text-xs sm:text-sm w-full md:w-[240px]">
+    <div className="hidden md:flex min-h-0 max-h-full flex-shrink-0 flex-col gap-3 overflow-y-auto rounded-lg bg-slate-800/95 p-2 sm:p-3 text-xs sm:text-sm w-full md:w-[240px]">
       <h3 className="font-semibold text-amber-400">Развитие</h3>
 
       {onToggleFogOfWar && (

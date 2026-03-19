@@ -1,3 +1,5 @@
+import { DEFAULT_BARRACK_MAX_HP } from "@/lib/game-engine/config/defaultConfig";
+
 /**
  * Статические параметры игры для отображения на главной странице.
  * Синхронизированы с defaultGameConfig.
@@ -65,7 +67,7 @@ export const gameParams = {
     },
     barrack: {
       name: "Барак",
-      maxHp: 401,
+      maxHp: DEFAULT_BARRACK_MAX_HP,
       radius: 15,
       spawnIntervalMs: 15000,
       attackRange: 80,

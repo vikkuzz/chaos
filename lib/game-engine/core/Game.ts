@@ -1,4 +1,8 @@
-import { GameConfig, type NeutralPointConfig } from "../config/defaultConfig";
+import {
+  GameConfig,
+  DEFAULT_BARRACK_MAX_HP,
+  type NeutralPointConfig,
+} from "../config/defaultConfig";
 import { Entity, EntityId } from "../entities/Entity";
 import { Barrack } from "../entities/base/Barrack";
 import {
@@ -166,6 +170,8 @@ export class Game {
   private static readonly XP_ASSIST_RADIUS = 150;
   private static readonly XP_PER_WARRIOR_KILL = 10;
   private static readonly XP_PER_HERO_KILL = 150;
+  /** Множитель опыта за убийства в радиусе героя (−20% к базовым XP_PER_*). */
+  private static readonly HERO_XP_FROM_KILLS_MULT = 0.8;
   static readonly BUY_WARRIOR_COST = 30;
   static readonly HERO_SUMMON_COST = 1000;
   private static readonly HERO_RESPAWN_COOLDOWN_MS = 180000; // 3 минуты
@@ -411,7 +417,12 @@ export class Game {
           }
           // XP героям союзников рядом с местом убийства (в т.ч. убийство своими юнитами)
           if (victim.kind === "warrior") {
-            const xpAmount = victim instanceof Hero ? Game.XP_PER_HERO_KILL : Game.XP_PER_WARRIOR_KILL;
+            const baseXp =
+              victim instanceof Hero ? Game.XP_PER_HERO_KILL : Game.XP_PER_WARRIOR_KILL;
+            const xpAmount = Math.max(
+              1,
+              Math.floor(baseXp * Game.HERO_XP_FROM_KILLS_MULT),
+            );
             const victimPos = victim.position;
             for (const w of this.warriors.values()) {
               if (!w.isAlive || w.ownerId !== killerOwnerId || !(w instanceof Hero)) continue;
@@ -1098,7 +1109,7 @@ export class Game {
       id,
       ownerId: playerId,
       position: { ...position },
-      maxHp: 401,
+      maxHp: DEFAULT_BARRACK_MAX_HP,
       radius: 15,
       spawnIntervalMs: options?.spawnIntervalMs ?? 15000,
       warriorTypeIds,

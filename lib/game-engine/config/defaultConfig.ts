@@ -71,6 +71,9 @@ export interface GameConfig {
  */
 const MAP_SIZE = 998;
 
+/** Базовое maxHp барака (старт и addBarrack в редакторе). */
+export const DEFAULT_BARRACK_MAX_HP = 551; // было 401, +150
+
 const barrackDefaults: {
   maxHp: number;
   radius: number;
@@ -80,7 +83,7 @@ const barrackDefaults: {
   attackDamage: number;
   attackIntervalMs: number;
 } = {
-  maxHp: 401, // +20%
+  maxHp: DEFAULT_BARRACK_MAX_HP,
   radius: 15,
   spawnIntervalMs: 15000,
   warriorTypeIds: ["basic", "basic", "basic", "archer", "archer"],
