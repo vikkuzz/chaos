@@ -27,7 +27,7 @@ import {
   BARRACK_MAX_LEVEL,
 } from "../upgrades/definitions";
 import { runAutoDevelopment } from "../ai/AutoDevelopment";
-import type { WarriorStats } from "../entities/units/WarriorTypes";
+import type { HeroStats, WarriorStats } from "../entities/units/WarriorTypes";
 import { NeutralPoint, type NeutralPointSnapshot } from "../entities/NeutralPoint";
 
 /** Треки улучшений замка (уровневая система). */
@@ -72,6 +72,8 @@ export interface SpellEffect {
 export interface BarrackBuyCapacity {
   current: number;
   max: number;
+  /** Мс до восстановления одного слота докупки; 0 если слотов уже максимум. */
+  restoreRemainingMs: number;
 }
 
 /** Сериализуемый снимок сущности для передачи по сети и рендера. */
@@ -96,6 +98,14 @@ export interface EntitySnapshot {
   heroTypeId?: string;
   level?: number;
   goldBounty?: number;
+  /** Герой: накопленный опыт и текущие боевые статы (после уровня). */
+  heroXp?: number;
+  heroAttackDamage?: number;
+  heroAttackRange?: number;
+  heroSpeed?: number;
+  heroAttackIntervalMs?: number;
+  heroArmor?: number;
+  heroHpRegenPerSec?: number;
   /** Для барака — оставшееся мс до спавна, интервал, кол-во юнитов за цикл. */
   spawnRemainingMs?: number;
   spawnIntervalMs?: number;
@@ -602,6 +612,14 @@ export class Game {
         base.heroTypeId = e.heroTypeId;
         base.level = e.level;
         base.goldBounty = e.goldBounty;
+        base.heroXp = e.xp;
+        const st = e.stats;
+        base.heroAttackDamage = st.attackDamage;
+        base.heroAttackRange = st.attackRange;
+        base.heroSpeed = st.speed;
+        base.heroAttackIntervalMs = st.attackIntervalMs;
+        base.heroArmor = st.armor;
+        base.heroHpRegenPerSec = (st as HeroStats).hpRegenPerSec;
       }
       if (e instanceof Castle) {
         base.mana = e.mana;

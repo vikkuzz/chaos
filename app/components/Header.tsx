@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { socialLinks } from "../config/social";
 import { SocialIcon } from "./SocialLinks";
+import { useGamePageHud } from "@/lib/GamePageHudContext";
 
 const navItems = [
   { href: "/", label: "Главная" },
@@ -14,6 +15,7 @@ const navItems = [
 
 export function Header() {
   const pathname = usePathname();
+  const { hud } = useGamePageHud();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [socialOpen, setSocialOpen] = useState(false);
   const socialRef = useRef<HTMLDivElement>(null);
@@ -109,11 +111,49 @@ export function Header() {
           ) : null}
         </div>
 
+        {pathname === "/game" && hud && (
+          <div className="flex sm:hidden min-w-0 flex-1 items-center justify-end gap-1.5 pr-1">
+            <div
+              className="flex min-w-0 max-w-[min(100%,11rem)] items-center gap-1 rounded-full bg-slate-800/95 px-2 py-1 ring-1 ring-slate-600/60"
+              style={
+                hud.playerAccentColor
+                  ? { borderLeft: `3px solid ${hud.playerAccentColor}` }
+                  : undefined
+              }
+              aria-label={`Золото: ${hud.gold}, инком ${hud.goldPerSecond.toFixed(1)}/с`}
+            >
+              <span className="shrink-0 text-sm leading-none">🪙</span>
+              <span className="truncate font-semibold tabular-nums text-amber-400 text-sm">
+                {hud.gold}
+              </span>
+              {hud.goldPerSecond > 0 && (
+                <span className="hidden min-[360px]:inline tabular-nums text-slate-400 text-[10px] shrink-0">
+                  +{hud.goldPerSecond.toFixed(1)}/с
+                </span>
+              )}
+            </div>
+            <label
+              className="flex shrink-0 cursor-pointer items-center gap-1 text-slate-200"
+              title="Авторазвитие"
+            >
+              <input
+                type="checkbox"
+                checked={hud.autoDevelopmentEnabled}
+                onChange={hud.onToggleAuto}
+                className="h-3.5 w-3.5 rounded border-slate-600 bg-slate-700 text-amber-500 focus:ring-amber-500"
+              />
+              <span className="text-[10px] font-medium leading-tight max-w-[2.75rem]">
+                Авто
+              </span>
+            </label>
+          </div>
+        )}
+
         {/* Mobile menu button */}
         <button
           type="button"
           onClick={() => setMobileOpen((v) => !v)}
-          className="sm:hidden inline-flex items-center justify-center p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors min-w-[44px] min-h-[44px]"
+          className="sm:hidden inline-flex shrink-0 items-center justify-center p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors min-w-[44px] min-h-[44px]"
           aria-expanded={mobileOpen}
           aria-controls="mobile-menu"
         >

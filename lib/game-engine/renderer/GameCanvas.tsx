@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, MouseEvent, TouchEvent } from "react";
+import { useGamePageHudWriter } from "@/lib/GamePageHudContext";
 import { useGameEngine, type GameEngineMode } from "../hooks/useGameEngine";
 import type { GameConfig } from "../config/defaultConfig";
 import type { ViewportState } from "./CanvasRenderer";
 import { DevelopmentPanel } from "./DevelopmentPanel";
 import { BuildingUpgradePanel } from "./BuildingUpgradePanel";
+import { HeroStatsPanel } from "./HeroStatsPanel";
 
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2;
@@ -180,6 +182,7 @@ export function GameCanvas({
   const [selectedNeutralPointId, setSelectedNeutralPointId] = useState<
     string | null
   >(null);
+  const [selectedHeroId, setSelectedHeroId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -197,6 +200,18 @@ export function GameCanvas({
       setUpgradePanelBuildingId(null);
     }
   }, [upgradePanelBuildingId, state]);
+
+  useEffect(() => {
+    if (!selectedHeroId || !state) return;
+    const entity = state.entities.find((e) => e.id === selectedHeroId);
+    if (!entity || !entity.isAlive || !entity.isHero) {
+      setSelectedHeroId(null);
+    }
+  }, [selectedHeroId, state]);
+
+  useEffect(() => {
+    if (effectiveMode !== "test") setSelectedHeroId(null);
+  }, [effectiveMode]);
   const [buildingPositions, setBuildingPositions] = useState<
     Record<string, { x: number; y: number }>
   >({});
@@ -280,6 +295,43 @@ export function GameCanvas({
       return next;
     });
   }, [setAutoDevelopmentEnabled]);
+
+  const setGamePageHud = useGamePageHudWriter();
+
+  useEffect(() => {
+    if (!setGamePageHud) return;
+    if (effectiveMode !== "test") {
+      setGamePageHud(null);
+      return;
+    }
+    const currentPlayerId = playerId ?? selectedPlayerId;
+    const ps =
+      state && currentPlayerId
+        ? state.playerStates[currentPlayerId]
+        : null;
+    if (!state || !ps) {
+      setGamePageHud(null);
+      return;
+    }
+    const player = config.players.find((p) => p.id === currentPlayerId);
+    setGamePageHud({
+      gold: Math.floor(ps.gold),
+      goldPerSecond: ps.goldPerSecond ?? 0,
+      autoDevelopmentEnabled,
+      onToggleAuto: toggleAutoDevelopment,
+      playerAccentColor: player?.color,
+    });
+    return () => setGamePageHud(null);
+  }, [
+    setGamePageHud,
+    effectiveMode,
+    state,
+    selectedPlayerId,
+    playerId,
+    autoDevelopmentEnabled,
+    toggleAutoDevelopment,
+    config.players,
+  ]);
 
   const toggleFogOfWar = useCallback(() => {
     setFogOfWarEnabledState((v) => {
@@ -551,6 +603,26 @@ export function GameCanvas({
     return null;
   };
 
+  const findHeroAt = useCallback(
+    (x: number, y: number): string | null => {
+      if (!state) return null;
+      let best: { id: string; d: number } | null = null;
+      for (const entity of state.entities) {
+        if (entity.kind !== "warrior" || !entity.isHero || !entity.isAlive)
+          continue;
+        const d = Math.hypot(
+          x - entity.position.x,
+          y - entity.position.y,
+        );
+        if (d <= entity.radius + 8) {
+          if (!best || d < best.d) best = { id: entity.id, d };
+        }
+      }
+      return best?.id ?? null;
+    },
+    [state],
+  );
+
   const clampToMap = (x: number, y: number) => ({
     x: Math.max(0, Math.min(config.mapWidth, x)),
     y: Math.max(0, Math.min(config.mapHeight, y)),
@@ -641,6 +713,16 @@ export function GameCanvas({
       const { x, y } = getGameCoordsFromClient(clientX, clientY);
 
       if (effectiveMode === "test") {
+        const heroId = findHeroAt(x, y);
+        if (heroId && state) {
+          const heroEntity = state.entities.find((e) => e.id === heroId);
+          if (heroEntity?.isHero) {
+            setSelectedHeroId(heroId);
+            setUpgradePanelBuildingId(null);
+            setSelectedNeutralPointId(null);
+            return;
+          }
+        }
         const building = findBuildingAt(x, y);
         if (building && state) {
           const entity = state.entities.find((e) => e.id === building.id);
@@ -650,13 +732,16 @@ export function GameCanvas({
           ) {
             setUpgradePanelBuildingId(building.id);
             setSelectedNeutralPointId(null);
+            setSelectedHeroId(null);
           }
         } else {
           const neutralPt = findNeutralPointAt(x, y);
           if (neutralPt) {
             setSelectedNeutralPointId(neutralPt.id);
+            setSelectedHeroId(null);
           } else {
             setSelectedNeutralPointId(null);
+            setSelectedHeroId(null);
           }
         }
         return;
@@ -764,6 +849,7 @@ export function GameCanvas({
       setSelectedBarrackId,
       setUpgradePanelBuildingId,
       applyRoute,
+      findHeroAt,
     ],
   );
 
@@ -1237,47 +1323,49 @@ export function GameCanvas({
                 <span className="text-slate-500">
                   Симуляция. Клик по замку или бараку — улучшения.
                 </span>
-                <label className="flex cursor-pointer items-center gap-2 text-xs sm:text-sm text-slate-200">
-                  <input
-                    type="checkbox"
-                    checked={autoDevelopmentEnabled}
-                    onChange={toggleAutoDevelopment}
-                    className="h-4 w-4 rounded border-slate-600 bg-slate-700 text-amber-500 focus:ring-amber-500"
-                  />
-                  <span>Авторазвитие</span>
-                </label>
-                {state &&
-                  (() => {
-                    const currentPlayerId = playerId ?? selectedPlayerId;
-                    const ps = currentPlayerId
-                      ? state.playerStates[currentPlayerId]
-                      : null;
-                    if (!ps) return null;
-                    const player = config.players.find(
-                      (p) => p.id === currentPlayerId,
-                    );
-                    return (
-                      <div
-                        className="flex items-center gap-1.5 rounded-full bg-slate-700/80 px-2.5 py-1.5 ring-1 ring-slate-600/60"
-                        style={
-                          player
-                            ? { borderLeft: `3px solid ${player.color}` }
-                            : undefined
-                        }
-                        aria-label={`Золото: ${Math.floor(ps.gold)}, инком ${(ps.goldPerSecond ?? 0).toFixed(1)}/с`}
-                      >
-                        <span className="text-sm leading-none">🪙</span>
-                        <span className="font-semibold tabular-nums text-amber-400 text-sm min-w-[2.5rem]">
-                          {Math.floor(ps.gold)}
-                        </span>
-                        {(ps.goldPerSecond ?? 0) > 0 && (
-                          <span className="tabular-nums text-slate-400 text-xs">
-                            +{(ps.goldPerSecond ?? 0).toFixed(1)}/с
+                <div className="hidden sm:flex sm:flex-wrap items-center gap-2">
+                  <label className="flex cursor-pointer items-center gap-2 text-xs sm:text-sm text-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={autoDevelopmentEnabled}
+                      onChange={toggleAutoDevelopment}
+                      className="h-4 w-4 rounded border-slate-600 bg-slate-700 text-amber-500 focus:ring-amber-500"
+                    />
+                    <span>Авторазвитие</span>
+                  </label>
+                  {state &&
+                    (() => {
+                      const currentPlayerId = playerId ?? selectedPlayerId;
+                      const ps = currentPlayerId
+                        ? state.playerStates[currentPlayerId]
+                        : null;
+                      if (!ps) return null;
+                      const player = config.players.find(
+                        (p) => p.id === currentPlayerId,
+                      );
+                      return (
+                        <div
+                          className="flex items-center gap-1.5 rounded-full bg-slate-700/80 px-2.5 py-1.5 ring-1 ring-slate-600/60"
+                          style={
+                            player
+                              ? { borderLeft: `3px solid ${player.color}` }
+                              : undefined
+                          }
+                          aria-label={`Золото: ${Math.floor(ps.gold)}, инком ${(ps.goldPerSecond ?? 0).toFixed(1)}/с`}
+                        >
+                          <span className="text-sm leading-none">🪙</span>
+                          <span className="font-semibold tabular-nums text-amber-400 text-sm min-w-[2.5rem]">
+                            {Math.floor(ps.gold)}
                           </span>
-                        )}
-                      </div>
-                    );
-                  })()}
+                          {(ps.goldPerSecond ?? 0) > 0 && (
+                            <span className="tabular-nums text-slate-400 text-xs">
+                              +{(ps.goldPerSecond ?? 0).toFixed(1)}/с
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
+                </div>
               </>
             )}
 
@@ -1383,7 +1471,7 @@ export function GameCanvas({
         )}
 
         {!isDev && effectiveMode === "test" && (
-          <div className="flex flex-shrink-0 flex-wrap items-center gap-2 sm:gap-3 rounded-lg bg-slate-800/90 px-2 sm:px-3 py-2 text-xs sm:text-sm min-h-[3rem] sm:min-h-[3.5rem]">
+          <div className="hidden sm:flex flex-shrink-0 flex-wrap items-center gap-2 sm:gap-3 rounded-lg bg-slate-800/90 px-2 sm:px-3 py-2 text-xs sm:text-sm min-h-[3rem] sm:min-h-[3.5rem]">
             <label className="flex cursor-pointer items-center gap-2 text-slate-200">
               <input
                 type="checkbox"
@@ -1657,8 +1745,60 @@ export function GameCanvas({
               onClose={() => {
                 setUpgradePanelBuildingId(null);
                 setSelectedNeutralPointId(null);
+                setSelectedHeroId(null);
               }}
               gameOver={state.gameOver}
+            />
+          );
+        })()}
+
+      {effectiveMode === "test" &&
+        selectedHeroId &&
+        state &&
+        (() => {
+          const entity = state.entities.find((e) => e.id === selectedHeroId);
+          if (!entity || !entity.isHero || !entity.heroTypeId) return null;
+          const rect = overlayCanvasRef.current?.getBoundingClientRect();
+          if (!rect) return null;
+          const vp = viewportRef.current;
+          let left: number;
+          let top: number;
+          if (vp && vp.width > 0 && vp.height > 0) {
+            const scale =
+              Math.min(vp.width / vp.mapWidth, vp.height / vp.mapHeight) *
+              vp.zoom;
+            left = rect.left + (entity.position.x - vp.panX) * scale;
+            top = rect.top + (entity.position.y - vp.panY) * scale;
+          } else {
+            left =
+              rect.left + (entity.position.x / config.mapWidth) * rect.width;
+            top =
+              rect.top + (entity.position.y / config.mapHeight) * rect.height;
+          }
+          const owner = config.players.find((p) => p.id === entity.ownerId);
+          const names = {
+            ...DEFAULT_HERO_NAMES,
+            ...heroNamesByPlayer[entity.ownerId],
+          };
+          const displayName =
+            names[entity.heroTypeId] ?? entity.heroTypeId ?? "Герой";
+          const ownerShortLabel =
+            owner?.id.replace("player-", "Игрок ") ?? entity.ownerId;
+          return (
+            <HeroStatsPanel
+              entity={entity}
+              displayName={displayName}
+              ownerColor={owner?.color}
+              ownerShortLabel={ownerShortLabel}
+              position={{ left, top }}
+              bounds={{
+                left: rect.left,
+                top: rect.top,
+                right: rect.right,
+                bottom: rect.bottom,
+              }}
+              isMobile={isMobile}
+              onClose={() => setSelectedHeroId(null)}
             />
           );
         })()}
@@ -1702,7 +1842,10 @@ export function GameCanvas({
                 <h3 className="font-medium text-slate-200">Точка захвата</h3>
                 <button
                   type="button"
-                  onClick={() => setSelectedNeutralPointId(null)}
+                  onClick={() => {
+                    setSelectedNeutralPointId(null);
+                    setSelectedHeroId(null);
+                  }}
                   className="rounded p-1 text-slate-400 hover:bg-slate-600 hover:text-slate-200"
                   aria-label="Закрыть"
                 >

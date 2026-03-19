@@ -16,10 +16,14 @@ const XP_BASE = 50;
 const XP_PER_LEVEL = 30;
 const STATS_PER_LEVEL_MULT = 1.1; // +10% за уровень
 
-/** XP, нужное для достижения уровня (1-based). level 1 = 0 XP, level 2 = xpForLevel(2), ... */
-function xpForLevel(level: number): number {
+/** Накопленный XP, с которого начинается уровень `level` (1-based). Для уровня 1 — 0. */
+export function heroCumulativeXpForLevel(level: number): number {
   if (level <= 1) return 0;
   return XP_BASE + (level - 1) * XP_PER_LEVEL;
+}
+
+function xpForLevel(level: number): number {
+  return heroCumulativeXpForLevel(level);
 }
 
 /**

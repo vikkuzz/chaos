@@ -2,6 +2,7 @@ import "./globals.css";
 import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
 import { Header } from "./components/Header";
+import { GamePageHudProvider } from "@/lib/GamePageHudContext";
 
 export const metadata: Metadata = {
   title: {
@@ -41,8 +42,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ru">
       <body className="bg-slate-900 text-slate-100">
-        <Header />
-        {children}
+        <GamePageHudProvider>
+          <Header />
+          {children}
+        </GamePageHudProvider>
       </body>
     </html>
   );

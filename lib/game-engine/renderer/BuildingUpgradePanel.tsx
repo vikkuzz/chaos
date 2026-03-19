@@ -25,6 +25,17 @@ const CASTLE_TRACKS: { id: CastleUpgradeTrack; name: string }[] = [
   { id: "magic", name: "Прокачка магии" },
 ];
 
+/** Короткие подписи треков замка на мобилке */
+const CASTLE_TRACK_COMPACT: Record<CastleUpgradeTrack, string> = {
+  castle: "Замок",
+  ranged: "Дальн.",
+  melee: "Ближн.",
+  buildingHp: "Стены",
+  unitHp: "HP юн.",
+  unitDefense: "Защита",
+  magic: "Магия",
+};
+
 export interface BuildingUpgradePanelProps {
   entity: EntitySnapshot;
   config: GameConfig;
@@ -84,34 +95,39 @@ interface CastleTrackRowProps {
   canBuy: boolean;
   onBuy: () => void;
   disabled?: boolean;
-  touchFriendly?: boolean;
+  /** Узкая мобильная вёрстка — ниже и плотнее */
+  compact?: boolean;
 }
 
-function CastleTrackRow({ name, level, maxLevel, cost, canBuy, onBuy, disabled, touchFriendly }: CastleTrackRowProps) {
+function CastleTrackRow({ name, level, maxLevel, cost, canBuy, onBuy, disabled, compact }: CastleTrackRowProps) {
   const atMax = level >= maxLevel;
   return (
     <li
-      className={`flex items-center justify-between gap-2 rounded border px-3 py-2 ${
-        touchFriendly ? "py-3" : "py-2"
-      } border-slate-600 bg-slate-700/85`}
+      className={`flex items-center justify-between gap-1.5 rounded border border-slate-600 bg-slate-700/85 ${
+        compact ? "px-2 py-1.5" : "px-3 py-2"
+      }`}
     >
       <div className="min-w-0 flex-1">
-        <div className={`font-medium text-slate-200 ${touchFriendly ? "text-sm" : "text-xs"}`}>{name}</div>
-        <div className={`text-slate-500 ${touchFriendly ? "text-xs" : "text-[10px]"}`}>
+        <div className={`font-medium text-slate-200 ${compact ? "text-[11px] leading-tight" : "text-xs"}`}>
+          {name}
+        </div>
+        <div className={`text-slate-500 ${compact ? "text-[9px]" : "text-[10px]"}`}>
           {level}/{maxLevel}
         </div>
       </div>
       {atMax ? (
-        <span className="shrink-0 text-emerald-400 text-sm">✓</span>
+        <span className={`shrink-0 text-emerald-400 ${compact ? "text-xs" : "text-sm"}`}>✓</span>
       ) : (
-        <div className="flex shrink-0 items-center gap-2">
-          <span className={`text-amber-400 ${touchFriendly ? "text-sm" : "text-xs"}`}>🪙{cost}</span>
+        <div className={`flex shrink-0 items-center ${compact ? "gap-1" : "gap-2"}`}>
+          <span className={`text-amber-400 ${compact ? "text-[10px]" : "text-xs"}`}>🪙{cost}</span>
           <button
             type="button"
             disabled={!canBuy || disabled}
             onClick={onBuy}
-            className={`rounded font-medium transition min-h-[44px] min-w-[80px] ${
-              touchFriendly ? "px-4 py-2 text-sm" : "px-2 py-1 text-xs"
+            className={`rounded font-medium transition ${
+              compact
+                ? "min-h-[32px] min-w-[58px] px-1.5 py-0.5 text-[10px]"
+                : "min-h-[44px] min-w-[80px] px-2 py-1 text-xs"
             } ${canBuy && !disabled ? "bg-amber-500 text-slate-900 hover:bg-amber-400" : "cursor-not-allowed bg-slate-600 text-slate-500"}`}
           >
             Купить
@@ -133,8 +149,8 @@ interface UpgradeCardProps {
   prerequisiteName?: string;
   onBuy: () => void;
   disabled?: boolean;
-  /** Увеличенные touch targets для мобильных */
-  touchFriendly?: boolean;
+  /** Узкая мобильная вёрстка */
+  compact?: boolean;
 }
 
 function UpgradeCard({
@@ -148,14 +164,14 @@ function UpgradeCard({
   prerequisiteName,
   onBuy,
   disabled,
-  touchFriendly,
+  compact,
 }: UpgradeCardProps) {
   const isLocked = !owned && prerequisiteName && !canBuy;
   return (
     <li
       key={id}
       className={`rounded border px-3 py-2 ${
-        touchFriendly ? "py-3" : "py-2"
+        compact ? "py-1.5 px-2" : "py-2"
       } ${
         owned
           ? "border-l-4 border-l-amber-500 border-emerald-600/50 bg-emerald-900/20"
@@ -164,13 +180,13 @@ function UpgradeCard({
             : "border-slate-600 bg-slate-700/85"
       }`}
     >
-      <div className="flex items-center justify-between gap-3">
+      <div className={`flex items-center justify-between ${compact ? "gap-2" : "gap-3"}`}>
         <div className="min-w-0 flex-1">
-          <div className={`font-medium text-slate-200 ${touchFriendly ? "text-sm" : "text-xs"} truncate`}>
+          <div className={`font-medium text-slate-200 ${compact ? "text-[11px]" : "text-xs"} truncate`}>
             {name}
           </div>
           {!owned && (
-            <div className={`text-slate-500 truncate ${touchFriendly ? "text-xs" : "text-[10px]"}`} title={description}>
+            <div className={`text-slate-500 truncate ${compact ? "text-[9px] leading-snug" : "text-[10px]"}`} title={description}>
               {description}
             </div>
           )}
@@ -181,16 +197,18 @@ function UpgradeCard({
           )}
         </div>
         {owned ? (
-          <span className="shrink-0 text-emerald-400 text-sm">✓</span>
+          <span className={`shrink-0 text-emerald-400 ${compact ? "text-xs" : "text-sm"}`}>✓</span>
         ) : (
-          <div className="flex shrink-0 items-center gap-2">
-            <span className={`text-amber-400 ${touchFriendly ? "text-sm" : "text-xs"}`}>🪙{cost}</span>
+          <div className={`flex shrink-0 items-center ${compact ? "gap-1" : "gap-2"}`}>
+            <span className={`text-amber-400 ${compact ? "text-[10px]" : "text-xs"}`}>🪙{cost}</span>
             <button
               type="button"
               disabled={!canBuy || disabled}
               onClick={onBuy}
-              className={`rounded font-medium transition min-h-[44px] min-w-[80px] ${
-                touchFriendly ? "px-4 py-2 text-sm" : "px-2 py-1 text-xs"
+              className={`rounded font-medium transition ${
+                compact
+                  ? "min-h-[32px] min-w-[58px] px-1.5 py-0.5 text-[10px]"
+                  : "min-h-[44px] min-w-[80px] px-2 py-1 text-xs"
               } ${
                 canBuy && !disabled
                   ? "bg-amber-500 text-slate-900 hover:bg-amber-400 active:bg-amber-600"
@@ -213,7 +231,7 @@ function UpgradeTreeView<T extends UpgradeDefinition | BuildingUpgradeDefinition
   canBuy,
   onBuy,
   disabled,
-  touchFriendly,
+  compact,
   getPrereqName,
 }: {
   defs: T[];
@@ -221,20 +239,20 @@ function UpgradeTreeView<T extends UpgradeDefinition | BuildingUpgradeDefinition
   canBuy: (def: T) => { can: boolean; reason?: string };
   onBuy: (def: T) => void;
   disabled?: boolean;
-  touchFriendly?: boolean;
+  compact?: boolean;
   getPrereqName: (id: string) => string | undefined;
 }) {
   const groups = useMemo(() => groupByLevel(defs, defs), [defs]);
   return (
-    <div className="flex flex-col gap-4">
+    <div className={`flex flex-col ${compact ? "gap-2" : "gap-4"}`}>
       {groups.map(({ level, items }) => (
         <div key={level}>
           {groups.length > 1 && (
-            <h5 className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">
+            <h5 className={`font-medium uppercase tracking-wide text-slate-500 ${compact ? "mb-1 text-[9px]" : "mb-1.5 text-[10px]"}`}>
               Уровень {level + 1}
             </h5>
           )}
-          <ul className={`flex flex-wrap gap-2 ${touchFriendly ? "gap-3" : ""}`}>
+          <ul className={`flex flex-wrap ${compact ? "gap-1.5" : "gap-2"}`}>
             {items.map((def) => {
               const owned = ownedIds.includes(def.id);
               const { can, reason } = canBuy(def);
@@ -252,7 +270,7 @@ function UpgradeTreeView<T extends UpgradeDefinition | BuildingUpgradeDefinition
                   prerequisiteName={prereqName}
                   onBuy={() => onBuy(def)}
                   disabled={disabled}
-                  touchFriendly={touchFriendly}
+                  compact={compact}
                 />
               );
             })}
@@ -293,9 +311,9 @@ export function BuildingUpgradePanel({
 
   if (!isCastle && !isBarrack) return null;
 
-  const touchFriendly = isMobile;
+  const compact = isMobile;
   const panelWidth = isMobile ? "100%" : 260;
-  const maxPanelHeight = isMobile ? "70vh" : 400;
+  const maxPanelHeight = isMobile ? "46vh" : 400;
 
   const panelStyles: React.CSSProperties = isMobile
     ? {
@@ -341,7 +359,7 @@ export function BuildingUpgradePanel({
   const panelClass =
     "fixed z-20 flex flex-col overflow-y-auto border border-slate-600 bg-slate-800 shadow-xl touch-pan-y " +
     (isMobile
-      ? "min-h-[200px] p-4 gap-4 rounded-t-xl"
+      ? "max-h-[46vh] min-h-0 p-2 gap-2 rounded-t-xl"
       : "min-w-[200px] max-w-[300px] p-3 gap-3 rounded-lg");
 
   return (
@@ -354,12 +372,12 @@ export function BuildingUpgradePanel({
         />
       )}
       <div className={panelClass} style={panelStyles}>
-        <div className="flex shrink-0 items-center justify-between gap-2">
-          <h3 className={`font-semibold text-amber-400 ${touchFriendly ? "text-base" : "text-xs"}`}>
+        <div className="flex shrink-0 items-center justify-between gap-1.5">
+          <h3 className={`font-semibold text-amber-400 ${compact ? "text-sm" : "text-xs"}`}>
             {isCastle ? "Замок" : "Барак"}
             {player && (
               <span
-                className="ml-1.5 rounded px-1.5 py-0.5 text-[10px]"
+                className={`ml-1 rounded py-0.5 font-medium text-slate-900 ${compact ? "px-1 text-[9px]" : "px-1.5 text-[10px]"}`}
                 style={{ backgroundColor: player.color, color: "#1e293b" }}
               >
                 {player.id.replace("player-", "П")}
@@ -369,8 +387,8 @@ export function BuildingUpgradePanel({
           <button
             type="button"
             onClick={onClose}
-            className={`shrink-0 rounded p-1 text-slate-500 hover:bg-slate-700 hover:text-slate-300 leading-none ${
-              touchFriendly ? "min-h-[44px] min-w-[44px] text-lg" : "text-sm"
+            className={`shrink-0 rounded text-slate-500 hover:bg-slate-700 hover:text-slate-300 leading-none ${
+              compact ? "min-h-8 min-w-8 p-0 text-base" : "p-1 text-sm"
             }`}
             aria-label="Закрыть"
           >
@@ -378,7 +396,9 @@ export function BuildingUpgradePanel({
           </button>
         </div>
         {!isOwnBuilding && (
-          <div className="text-[10px] text-slate-500 italic">Только просмотр</div>
+          <div className={`text-slate-500 italic ${compact ? "text-[9px] leading-tight" : "text-[10px]"}`}>
+            Только просмотр
+          </div>
         )}
 
         {isCastle && entity.kind === "castle" && (() => {
@@ -392,43 +412,47 @@ export function BuildingUpgradePanel({
 
           return (
             <>
-              <div className={`text-slate-500 ${touchFriendly ? "text-sm" : "text-[10px]"}`}>
+              <div className={`text-slate-500 ${compact ? "text-[10px] leading-snug" : "text-[10px]"}`}>
                 HP {entity.hp}/{entity.maxHp} · урон {(entity as { attackDamage?: number }).attackDamage ?? "—"} · мана {Math.floor(manaRaw)}/{entity.maxMana ?? CASTLE_SPELL.MANA_MAX}
               </div>
               {isOwnBuilding && onCastCastleSpell && (
-                <div className="flex flex-wrap gap-2">
+                <div className={`flex flex-wrap ${compact ? "gap-1" : "gap-2"}`}>
                   <button
                     type="button"
                     disabled={gameOver || manaRaw < CASTLE_SPELL_1.MANA_COST || spell1Cd > 0}
                     onClick={() => onCastCastleSpell(entity.ownerId, entity.id, 0)}
-                    className={`rounded font-medium transition ${touchFriendly ? "min-h-[44px] px-4 py-2 text-sm" : "px-2 py-1 text-xs"} ${
+                    className={`rounded font-medium transition ${
+                      compact ? "min-h-[32px] px-2 py-1 text-[10px]" : "px-2 py-1 text-xs"
+                    } ${
                       manaRaw >= CASTLE_SPELL_1.MANA_COST && spell1Cd <= 0 && !gameOver
                         ? "bg-violet-600 text-white hover:bg-violet-500"
                         : "cursor-not-allowed bg-slate-600 text-slate-500"
                     }`}
                     title={`Урон 100×100 вокруг угрожаемого здания (${CASTLE_SPELL_1.MANA_COST} маны)`}
                   >
-                    ✨ Закл.1 {spell1Cd > 0 ? `(${Math.ceil(spell1Cd / 1000)})` : ""}
+                    ✨1{spell1Cd > 0 ? ` ${Math.ceil(spell1Cd / 1000)}с` : ""}
                   </button>
                   {castleLevel >= 2 && (
                     <button
                       type="button"
                       disabled={gameOver || manaRaw < CASTLE_SPELL_2.MANA_COST || spell2Cd > 0}
                       onClick={() => onCastCastleSpell(entity.ownerId, entity.id, 1)}
-                      className={`rounded font-medium transition ${touchFriendly ? "min-h-[44px] px-4 py-2 text-sm" : "px-2 py-1 text-xs"} ${
+                      className={`rounded font-medium transition ${
+                        compact ? "min-h-[32px] px-2 py-1 text-[10px]" : "px-2 py-1 text-xs"
+                      } ${
                         manaRaw >= CASTLE_SPELL_2.MANA_COST && spell2Cd <= 0 && !gameOver
                           ? "bg-violet-700 text-white hover:bg-violet-600"
                           : "cursor-not-allowed bg-slate-600 text-slate-500"
                       }`}
                       title={`Убить в радиусе ${CASTLE_SPELL_2.RADIUS} (${CASTLE_SPELL_2.MANA_COST} маны)`}
                     >
-                      ✨ Закл.2 {spell2Cd > 0 ? `(${Math.ceil(spell2Cd / 1000)})` : ""}
+                      ✨2{spell2Cd > 0 ? ` ${Math.ceil(spell2Cd / 1000)}с` : ""}
                     </button>
                   )}
                 </div>
               )}
               {isOwnBuilding && ps && (
-                <ul className="flex flex-col gap-2">
+                <ul className={`flex flex-col ${compact ? "gap-1" : "gap-2"}`}>
                   {CASTLE_TRACKS.map(({ id, name }) => {
                     const level =
                       id === "castle"
@@ -450,14 +474,14 @@ export function BuildingUpgradePanel({
                     return (
                       <CastleTrackRow
                         key={id}
-                        name={name}
+                        name={compact ? CASTLE_TRACK_COMPACT[id] : name}
                         level={level}
                         maxLevel={maxLevel}
                         cost={cost ?? 0}
                         canBuy={canBuy}
                         onBuy={() => onBuyCastleUpgrade(entity.ownerId, id)}
                         disabled={gameOver}
-                        touchFriendly={touchFriendly}
+                        compact={compact}
                       />
                     );
                   })}
@@ -469,27 +493,28 @@ export function BuildingUpgradePanel({
 
         {isBarrack && entity.kind === "barrack" && (
           <>
-            <div className={`text-slate-500 ${touchFriendly ? "text-sm" : "text-[10px]"}`}>
+            <div className={`text-slate-500 ${compact ? "text-[10px] leading-snug" : "text-[10px]"}`}>
               HP {entity.hp}/{entity.maxHp}
               {" · "}
               {(entity as { spawnRemainingMs?: number }).spawnRemainingMs === 0
-                ? "Спавн..."
-                : `до спавна ${Math.ceil(((entity as { spawnRemainingMs?: number }).spawnRemainingMs ?? 0) / 1000)} с`}
+                ? "Спавн"
+                : `спавн ${Math.ceil(((entity as { spawnRemainingMs?: number }).spawnRemainingMs ?? 0) / 1000)}с`}
               {" · "}
-              {(entity as { spawnCount?: number }).spawnCount ?? "—"} юнитов за цикл
+              {(entity as { spawnCount?: number }).spawnCount ?? "—"}/цикл
             </div>
             {isOwnBuilding && onRepairBarrack && (
               <div
-                className={`flex items-center justify-between gap-2 rounded border border-slate-600 bg-slate-700/85 px-3 ${
-                  touchFriendly ? "py-3 min-h-[44px]" : "py-2"
+                className={`flex items-center justify-between gap-1.5 rounded border border-slate-600 bg-slate-700/85 ${
+                  compact ? "px-2 py-1.5" : "px-3 py-2"
                 }`}
               >
-                <div className={touchFriendly ? "text-sm" : "text-xs"}>
-                  <span className="text-slate-400">Ремонт:</span>{" "}
-                  <span className="text-slate-200">+20% HP</span>
+                <div className={compact ? "text-[10px] leading-tight min-w-0" : "text-xs"}>
+                  <span className="text-slate-400">Ремонт</span>{" "}
+                  <span className="text-slate-200">+20%</span>
                   {barrackRepairCooldownMs > 0 && (
-                    <span className="ml-1 text-slate-500">
-                      (откат {Math.ceil(barrackRepairCooldownMs / 1000)} сек)
+                    <span className="text-slate-500">
+                      {" "}
+                      {Math.ceil(barrackRepairCooldownMs / 1000)}с
                     </span>
                   )}
                 </div>
@@ -497,8 +522,8 @@ export function BuildingUpgradePanel({
                   type="button"
                   disabled={gameOver || barrackRepairCooldownMs > 0 || entity.hp >= entity.maxHp}
                   onClick={() => onRepairBarrack(entity.ownerId, entity.id)}
-                  className={`rounded font-medium transition ${
-                    touchFriendly ? "min-h-[44px] px-4 py-2 text-sm" : "px-2 py-1 text-xs"
+                  className={`shrink-0 rounded font-medium transition ${
+                    compact ? "min-h-[32px] px-2 py-0.5 text-[10px]" : "px-2 py-1 text-xs"
                   } ${
                     barrackRepairCooldownMs <= 0 && entity.hp < entity.maxHp && !gameOver
                       ? "bg-emerald-600 text-white hover:bg-emerald-500"
@@ -511,15 +536,26 @@ export function BuildingUpgradePanel({
             )}
             {isOwnBuilding && onBuyBarrackWarrior && barrackBuyCapacity && (
               <div
-                className={`flex items-center justify-between gap-2 rounded border border-slate-600 bg-slate-700/85 px-3 ${
-                  touchFriendly ? "py-3 min-h-[44px]" : "py-2"
+                className={`flex items-center justify-between gap-1.5 rounded border border-slate-600 bg-slate-700/85 ${
+                  compact ? "px-2 py-1.5" : "px-3 py-2"
                 }`}
               >
-                <div className={touchFriendly ? "text-sm" : "text-xs"}>
-                  <span className="text-slate-400">Докупка:</span>{" "}
+                <div className={`min-w-0 ${compact ? "text-[10px] leading-tight" : "text-xs"}`}>
+                  <span className="text-slate-400">Докупка</span>{" "}
                   <span className="font-medium text-slate-200">
                     {barrackBuyCapacity.current}/{barrackBuyCapacity.max}
                   </span>
+                  {(barrackBuyCapacity.restoreRemainingMs ?? 0) > 0 &&
+                    barrackBuyCapacity.current < barrackBuyCapacity.max && (
+                      <span className="text-slate-500 tabular-nums">
+                        {" "}
+                        +1≈
+                        {Math.ceil(
+                          (barrackBuyCapacity.restoreRemainingMs ?? 0) / 1000,
+                        )}
+                        с
+                      </span>
+                    )}
                 </div>
                 <button
                   type="button"
@@ -529,8 +565,8 @@ export function BuildingUpgradePanel({
                     (playerState?.gold ?? 0) < Game.BUY_WARRIOR_COST
                   }
                   onClick={() => onBuyBarrackWarrior(entity.ownerId, entity.id)}
-                  className={`rounded font-medium transition ${
-                    touchFriendly ? "min-h-[44px] min-w-[80px] px-4 py-2 text-sm" : "px-2 py-1 text-xs"
+                  className={`shrink-0 rounded font-medium transition ${
+                    compact ? "min-h-[32px] min-w-[52px] px-1.5 py-0.5 text-[10px]" : "px-2 py-1 text-xs"
                   } ${
                     barrackBuyCapacity.current > 0 &&
                     (playerState?.gold ?? 0) >= Game.BUY_WARRIOR_COST &&
@@ -546,13 +582,13 @@ export function BuildingUpgradePanel({
             {isOwnBuilding && onSummonHero && config.heroTypes && Object.keys(config.heroTypes).length > 0 && (
               <div>
                 <h4
-                  className={`mb-2 font-medium uppercase tracking-wide text-slate-500 ${
-                    touchFriendly ? "text-xs" : "text-[10px]"
+                  className={`font-medium uppercase tracking-wide text-slate-500 ${
+                    compact ? "mb-1 text-[9px]" : "mb-2 text-[10px]"
                   }`}
                 >
                   Герои
                 </h4>
-                <div className="flex flex-wrap gap-2">
+                <div className={`flex flex-wrap ${compact ? "gap-1" : "gap-2"}`}>
                   {(["hero-1", "hero-2", "hero-3"] as const).map((heroTypeId) => {
                     const baseStats = config.heroTypes![heroTypeId];
                     if (!baseStats) return null;
@@ -582,8 +618,10 @@ export function BuildingUpgradePanel({
                         type="button"
                         disabled={!canSummon}
                         onClick={() => onSummonHero(entity.ownerId, entity.id, heroTypeId)}
-                        className={`rounded border px-3 py-2 font-medium transition ${
-                          touchFriendly ? "min-h-[44px] py-2" : "py-1.5"
+                        className={`rounded border font-medium transition ${
+                          compact
+                            ? "min-h-[32px] px-1.5 py-0.5 text-[10px] leading-tight"
+                            : "px-3 py-1.5"
                         } ${
                           canSummon
                             ? "border-amber-600 bg-amber-500/80 text-slate-900 hover:bg-amber-400/90"
@@ -592,7 +630,7 @@ export function BuildingUpgradePanel({
                         title={reason}
                       >
                         {names[heroTypeId] ?? heroTypeId} 🪙{Game.HERO_SUMMON_COST}
-                        {cooldownMs > 0 && ` (${Math.ceil(cooldownMs / 1000)})`}
+                        {cooldownMs > 0 && ` ${Math.ceil(cooldownMs / 1000)}с`}
                       </button>
                     );
                   })}
@@ -602,14 +640,14 @@ export function BuildingUpgradePanel({
             {isOwnBuilding && (
             <div>
               <h4
-                className={`mb-2 font-medium uppercase tracking-wide text-slate-500 ${
-                  touchFriendly ? "text-xs" : "text-[10px]"
+                className={`font-medium uppercase tracking-wide text-slate-500 ${
+                  compact ? "mb-1 text-[9px]" : "mb-2 text-[10px]"
                 }`}
               >
-                Улучшение барака
+                Барак
               </h4>
               <CastleTrackRow
-                name="Улучшить барак"
+                name="Улучшить"
                 level={barrackLevel}
                 maxLevel={BARRACK_MAX_LEVEL}
                 cost={getBarrackUpgradeCost(barrackLevel) ?? 0}
@@ -619,7 +657,7 @@ export function BuildingUpgradePanel({
                 }
                 onBuy={() => onBuyBarrackUpgrade(entity.ownerId, entity.id)}
                 disabled={gameOver}
-                touchFriendly={touchFriendly}
+                compact={compact}
               />
             </div>
             )}

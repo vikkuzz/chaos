@@ -201,8 +201,24 @@ export class Barrack extends Entity {
     }
   }
 
-  getBuyCapacity(): { current: number; max: number } {
-    return { current: this.buyCapacityCurrent, max: this.buyCapacityMax };
+  getBuyCapacity(): {
+    current: number;
+    max: number;
+    restoreRemainingMs: number;
+  } {
+    const restoreRemainingMs =
+      this.buyCapacityCurrent >= this.buyCapacityMax
+        ? 0
+        : Math.max(
+            0,
+            Barrack.BUY_CAPACITY_RESTORE_INTERVAL_MS -
+              this.buyCapacityRestoreTimerMs,
+          );
+    return {
+      current: this.buyCapacityCurrent,
+      max: this.buyCapacityMax,
+      restoreRemainingMs,
+    };
   }
 
   /** Потребляет 1 слот докупки. Возвращает true, если слот был доступен. */
