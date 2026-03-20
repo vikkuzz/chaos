@@ -1283,9 +1283,9 @@ export function GameCanvas({
           </div>
         )}
 
-      <div className="flex flex-1 flex-col gap-2 min-w-0">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
         {isDev && (
-          <div className="flex flex-shrink-0 flex-wrap items-center gap-2 sm:gap-3 rounded-lg bg-slate-800/90 px-2 sm:px-3 py-2 text-xs sm:text-sm min-h-[3.5rem] sm:min-h-[4rem]">
+          <div className="relative z-20 flex flex-shrink-0 flex-wrap items-center gap-2 sm:gap-3 rounded-lg bg-slate-800/95 px-2 sm:px-3 py-2 text-xs sm:text-sm min-h-[3.5rem] sm:min-h-[4rem]">
             <span className="text-slate-400">Режим:</span>
             <div className="flex rounded-md bg-slate-700 p-0.5">
               <button
@@ -1471,7 +1471,7 @@ export function GameCanvas({
         )}
 
         {!isDev && effectiveMode === "test" && (
-          <div className="hidden sm:flex flex-shrink-0 flex-wrap items-center gap-2 sm:gap-3 rounded-lg bg-slate-800/90 px-2 sm:px-3 py-2 text-xs sm:text-sm min-h-[3rem] sm:min-h-[3.5rem]">
+          <div className="relative z-20 hidden sm:flex flex-shrink-0 flex-wrap items-center gap-2 sm:gap-3 rounded-lg bg-slate-800/95 px-2 sm:px-3 py-2 text-xs sm:text-sm min-h-[3rem] sm:min-h-[3.5rem]">
             <label className="flex cursor-pointer items-center gap-2 text-slate-200">
               <input
                 type="checkbox"
@@ -1516,12 +1516,11 @@ export function GameCanvas({
           </div>
         )}
 
-        <div className="flex flex-1 min-h-0 min-w-0 flex-col md:flex-row md:items-center gap-2 md:gap-3">
-          <div className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden">
+        <div className="flex flex-1 min-h-0 min-w-0 flex-col md:flex-row md:items-stretch gap-2 md:gap-3">
+          <div className="relative z-0 flex min-h-0 min-w-0 flex-1 items-stretch justify-center overflow-hidden">
             <div
               ref={viewportContainerRef}
-              className="relative shrink-0 w-full h-full min-h-0 overflow-hidden rounded-lg border-2 border-slate-500/80 shadow-lg shadow-black/40"
-              style={{ aspectRatio: "1", maxWidth: "100%", maxHeight: "100%" }}
+              className="relative mx-auto h-full max-h-full w-auto max-w-full shrink-0 overflow-hidden rounded-lg border-2 border-slate-500/80 shadow-lg shadow-black/40 aspect-square"
             >
               <div className="absolute bottom-2 right-2 z-10 flex flex-col gap-1 rounded-lg bg-slate-800/90 p-1 shadow-lg md:bottom-3 md:right-3">
                 <button
