@@ -14,6 +14,18 @@ const UNIT_SEPARATION_MARGIN = 0.5;
 /** Сколько раз за кадр разрешать наложения (соседи по цепочке). */
 const UNIT_SEPARATION_ITERATIONS = 4;
 
+/** Живая цель для боя: враг из того же набора, что в цикле движения/атаки. */
+function isHostileCombatTarget(e: Entity, warriorOwnerId: string): boolean {
+  return (
+    e.isAlive &&
+    e.ownerId !== warriorOwnerId &&
+    (e.kind === "warrior" ||
+      e.kind === "castle" ||
+      e.kind === "barrack" ||
+      e.kind === "tower")
+  );
+}
+
 export interface HeroUnderAttack {
   attacker: Warrior;
   heroOwnerId: string;
@@ -48,15 +60,7 @@ export class MovementSystem {
       const attackRange = warrior.stats.attackRange;
       const attackIntervalMs = warrior.stats.attackIntervalMs ?? 400;
 
-      const enemies = entitiesList.filter(
-        (e) =>
-          e.isAlive &&
-          e.ownerId !== warrior.ownerId &&
-          (e.kind === "warrior" ||
-            e.kind === "castle" ||
-            e.kind === "barrack" ||
-            e.kind === "tower"),
-      );
+      const enemies = entitiesList.filter((e) => isHostileCombatTarget(e, warrior.ownerId));
 
       const enemiesInDetection = enemies.filter((e) => {
         const dist = warrior.position.distanceTo(e.position);
@@ -160,14 +164,33 @@ export class MovementSystem {
       }
     }
 
-    this.applyWarriorSeparation(warriorList);
+    const engaged = new Map<Warrior, boolean>();
+    for (const w of warriorList) {
+      if (!w.isAlive) continue;
+      engaged.set(w, this.isWithinAttackRangeOfAnyEnemy(w, entitiesList));
+    }
+    this.applyWarriorSeparation(warriorList, engaged);
+  }
+
+  /** Есть ли враг в радиусе атаки (как условие удара по дистанции, без учёта кулдауна). */
+  private isWithinAttackRangeOfAnyEnemy(warrior: Warrior, entitiesList: Entity[]): boolean {
+    const range = warrior.stats.attackRange;
+    for (const e of entitiesList) {
+      if (!isHostileCombatTarget(e, warrior.ownerId)) continue;
+      if (warrior.position.distanceTo(e.position) <= range) return true;
+    }
+    return false;
   }
 
   /**
-   * Мягкое раздвижение всех воинов, если круги пересекаются (в т.ч. враги).
-   * Раньше только союзники — из‑за этого при столкновении армий MARGIN «не работал» визуально.
+   * Мягкое раздвижение воинов при пересечении кругов.
+   * Союзники оба в радиусе атаки по врагу — без раздвижения.
+   * Любая пара с героем — без раздвижения (герой не двигается; ближний бой иначе выталкивает из attackRange).
    */
-  private applyWarriorSeparation(warriors: Iterable<Warrior>): void {
+  private applyWarriorSeparation(
+    warriors: Iterable<Warrior>,
+    engaged: Map<Warrior, boolean>,
+  ): void {
     const list = Array.from(warriors).filter((w) => w.isAlive);
     if (list.length < 2) return;
 
@@ -177,6 +200,20 @@ export class MovementSystem {
           const a = list[i];
           const b = list[j];
           if (!a.isAlive || !b.isAlive) continue;
+
+          if (
+            a.ownerId === b.ownerId &&
+            engaged.get(a) === true &&
+            engaged.get(b) === true
+          ) {
+            continue;
+          }
+
+          // Пара с героем не раздвигаем: у ближнего боя attackRange < minDist после separation,
+          // и выталкивание только воина стабильно держит его вне дистанции удара.
+          if (a instanceof Hero || b instanceof Hero) {
+            continue;
+          }
 
           const minDist = a.radius + b.radius + UNIT_SEPARATION_MARGIN;
           const dx = b.position.x - a.position.x;
