@@ -304,19 +304,22 @@ export default function HomePage() {
               Играть
             </Link>
           </div>
-          <div className="rounded-lg border border-slate-600 bg-slate-800/50 p-6 opacity-75">
-            <h3 className="text-lg font-semibold text-slate-400 mb-2">
-              Мультиплеер
+          <div className="rounded-lg border border-slate-600 bg-slate-800/80 p-6">
+            <h3 className="text-lg font-semibold text-amber-400 mb-2">
+              Мультиплеер{" "}
+              <span className="align-middle ml-1 rounded bg-amber-500/20 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-300">
+                Бета
+              </span>
             </h3>
-            <p className="text-slate-500 text-sm sm:text-base mb-4">
-              Игра онлайн с другими игроками. Сейчас в разработке.
+            <p className="text-slate-400 text-sm sm:text-base mb-4">
+              Игра онлайн с другими игроками. Одна общая комната, до 4 человек.
             </p>
-            <span
-              className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-slate-600 text-slate-500 font-medium cursor-not-allowed min-h-[44px]"
-              aria-disabled="true"
+            <Link
+              href="/game?mode=multiplayer"
+              className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium transition-colors min-h-[44px]"
             >
-              Скоро
-            </span>
+              Играть
+            </Link>
           </div>
         </div>
       </Section>
@@ -337,13 +340,15 @@ export default function HomePage() {
             >
               Локальная игра
             </Link>
-            <span
-              className="inline-flex items-center justify-center px-6 py-3 sm:px-8 sm:py-4 rounded-lg bg-slate-600 text-slate-500 font-medium cursor-not-allowed min-h-[48px]"
-              aria-disabled="true"
-              title="Временно недоступно"
+            <Link
+              href="/game?mode=multiplayer"
+              className="inline-flex items-center justify-center px-6 py-3 sm:px-8 sm:py-4 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-semibold text-lg transition-colors min-h-[48px]"
             >
               Мультиплеер
-            </span>
+              <span className="ml-2 rounded bg-black/20 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide">
+                Бета
+              </span>
+            </Link>
           </div>
         </div>
       </section>
