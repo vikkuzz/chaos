@@ -24,7 +24,11 @@ export class GameServer {
 
   constructor(httpServer: HttpServer) {
     this.io = new SocketServer(httpServer, {
-      cors: { origin: "*" },
+      cors: {
+        origin: true,
+        methods: ["GET", "POST"],
+      },
+      transports: ["polling", "websocket"],
     });
     this.game = new Game(defaultGameConfig);
     this.game.setHumanPlayerIds(this.humanPlayerIds);

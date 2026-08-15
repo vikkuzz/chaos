@@ -15,6 +15,7 @@ import {
   getVisionSources,
   computeVisibleCells,
   updateLastKnownEnemies,
+  isPlayerDefeated,
   FOG_CELL_SIZE,
 } from "../fog/FogOfWar";
 
@@ -143,7 +144,7 @@ export function useGameEngine(
         if (st && canvas) {
           const currentId = currentPlayerIdRef.current;
           let fogData: { visibleCells: Set<string>; revealedCells: Set<string>; lastKnownEnemies: Map<string, EntitySnapshot> } | null = null;
-          if (fogOfWarEnabledRef.current && currentId) {
+          if (fogOfWarEnabledRef.current && currentId && !isPlayerDefeated(st, currentId)) {
             const sources = getVisionSources(st.entities, currentId);
             const visible = computeVisibleCells(sources, config.mapWidth, config.mapHeight, FOG_CELL_SIZE);
             revealedCellsRef.current = new Set([...revealedCellsRef.current, ...visible]);
@@ -247,7 +248,7 @@ export function useGameEngine(
       const snapshot = engine.getStateSnapshot();
       const currentId = currentPlayerIdRef.current;
       let fogData: { visibleCells: Set<string>; revealedCells: Set<string>; lastKnownEnemies: Map<string, EntitySnapshot> } | null = null;
-      if (fogOfWarEnabledRef.current && currentId) {
+      if (fogOfWarEnabledRef.current && currentId && !isPlayerDefeated(snapshot, currentId)) {
         const sources = getVisionSources(snapshot.entities, currentId);
         const visible = computeVisibleCells(sources, config.mapWidth, config.mapHeight, FOG_CELL_SIZE);
         revealedCellsRef.current = new Set([...revealedCellsRef.current, ...visible]);

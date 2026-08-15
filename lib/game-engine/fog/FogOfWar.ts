@@ -1,4 +1,4 @@
-import type { EntitySnapshot } from "../core/Game";
+import type { EntitySnapshot, GameStateSnapshot } from "../core/Game";
 
 /** Радиусы обзора зданий для тумана войны. */
 export const VISION_CASTLE = 140;
@@ -11,6 +11,21 @@ export interface VisionSource {
   x: number;
   y: number;
   radius: number;
+}
+
+const BUILDING_KINDS = new Set(["castle", "barrack", "tower"]);
+
+/** Игрок проиграл, если не осталось живых зданий. Туман для него тогда не нужен. */
+export function isPlayerDefeated(
+  snapshot: GameStateSnapshot,
+  playerId: string,
+): boolean {
+  if (snapshot.gameOver && !snapshot.winnerIds.includes(playerId)) {
+    return true;
+  }
+  return !snapshot.entities.some(
+    (e) => e.ownerId === playerId && e.isAlive && BUILDING_KINDS.has(e.kind),
+  );
 }
 
 /**
