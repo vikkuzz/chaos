@@ -1,9 +1,9 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { GameCanvas } from "@/lib/game-engine/renderer/GameCanvas";
-import { LeftSessionScreen, LobbyScreen } from "@/lib/game-engine/components/LobbyScreen";
+import { LobbyScreen } from "@/lib/game-engine/components/LobbyScreen";
 import { useMultiplayerSocket } from "@/lib/game-engine/hooks/useMultiplayerSocket";
 import { defaultGameConfig } from "@/lib/game-engine";
 
@@ -11,6 +11,7 @@ const SOCKET_URL =
   process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:3001";
 
 function MultiplayerGame() {
+  const router = useRouter();
   const {
     socket,
     playerId,
@@ -18,25 +19,22 @@ function MultiplayerGame() {
     gameStarted,
     gameState,
     setReady,
-    leaveSession,
-    leaveAndFindGame,
-    findGame,
+    leaveToLobby,
     connected,
-    hasLeft,
+    waitingForMatch,
   } = useMultiplayerSocket(SOCKET_URL);
 
   return (
     <div className="flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden rounded-lg border border-slate-700">
-      {hasLeft ? (
-        <LeftSessionScreen onFindGame={findGame} />
-      ) : !gameStarted ? (
+      {!gameStarted ? (
         <LobbyScreen
           lobbyState={lobbyState}
           playerId={playerId}
           config={defaultGameConfig}
           onReady={setReady}
-          onLeave={leaveSession}
+          onLeave={() => router.push("/")}
           connected={connected}
+          waitingForMatch={waitingForMatch}
         />
       ) : (
         <GameCanvas
@@ -46,10 +44,25 @@ function MultiplayerGame() {
           multiplayerSocket={socket ?? undefined}
           multiplayerPlayerId={playerId}
           multiplayerGameState={gameState}
-          onLeaveSession={leaveSession}
-          onLeaveToLobby={leaveAndFindGame}
+          onLeaveSession={leaveToLobby}
+          onLeaveToLobby={leaveToLobby}
         />
       )}
+    </div>
+  );
+}
+
+function LocalGame() {
+  const [gameKey, setGameKey] = useState(0);
+
+  return (
+    <div className="flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden rounded-lg border border-slate-700">
+      <GameCanvas
+        key={gameKey}
+        config={defaultGameConfig}
+        mode="local"
+        onNewGame={() => setGameKey((k) => k + 1)}
+      />
     </div>
   );
 }
@@ -60,13 +73,7 @@ function GameContent() {
 
   return (
     <div className="flex flex-col md:flex-row gap-2 md:gap-3 max-w-[1280px] w-full md:h-[min(900px,calc(100vh-2rem))] h-[calc(100dvh-1rem)] md:min-h-[500px] min-h-[400px] mx-auto">
-      {mode === "multiplayer" ? (
-        <MultiplayerGame />
-      ) : (
-        <div className="flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden rounded-lg border border-slate-700">
-          <GameCanvas config={defaultGameConfig} mode="local" />
-        </div>
-      )}
+      {mode === "multiplayer" ? <MultiplayerGame /> : <LocalGame />}
     </div>
   );
 }

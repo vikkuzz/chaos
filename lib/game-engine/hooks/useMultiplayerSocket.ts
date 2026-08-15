@@ -22,11 +22,9 @@ export interface UseMultiplayerSocketResult {
   gameStarted: boolean;
   gameState: GameStateSnapshot | null;
   setReady: () => void;
-  leaveSession: () => void;
-  leaveAndFindGame: () => void;
-  findGame: () => void;
+  leaveToLobby: () => void;
   connected: boolean;
-  hasLeft: boolean;
+  waitingForMatch: boolean;
 }
 
 const SESSION_STORAGE_KEY = "rts-session-id";
@@ -53,23 +51,29 @@ export function useMultiplayerSocket(socketUrl: string): UseMultiplayerSocketRes
   const [gameStarted, setGameStarted] = useState(false);
   const [gameState, setGameState] = useState<GameStateSnapshot | null>(null);
   const [connected, setConnected] = useState(false);
-  const [hasLeft, setHasLeft] = useState(false);
-  const [joinGeneration, setJoinGeneration] = useState(0);
+  const [waitingForMatch, setWaitingForMatch] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
+  const playerIdRef = useRef<string | null>(null);
+  const waitingRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (hasLeft) return;
 
     const s = io(socketUrl);
     socketRef.current = s;
     setSocket(s);
 
-    s.on("connect", () => {
-      setConnected(true);
+    const joinLobby = () => {
       const sessionId = getOrCreateSessionId();
       s.emit("lobby:join", { sessionId });
+    };
+
+    s.on("connect", () => {
+      setConnected(true);
+      if (!waitingRef.current) {
+        joinLobby();
+      }
     });
 
     s.on("disconnect", () => {
@@ -77,69 +81,77 @@ export function useMultiplayerSocket(socketUrl: string): UseMultiplayerSocketRes
     });
 
     s.on("lobby:assigned", (payload: { playerId: string; slot: number }) => {
+      playerIdRef.current = payload.playerId;
       setPlayerId(payload.playerId);
+      waitingRef.current = false;
+      setWaitingForMatch(false);
     });
 
     s.on("lobby:state", (state: LobbyState) => {
       setLobbyState(state);
-      setGameStarted(state.gameStarted);
+      if (!waitingRef.current) {
+        setGameStarted(state.gameStarted);
+      }
+    });
+
+    s.on("lobby:waiting", () => {
+      waitingRef.current = true;
+      setWaitingForMatch(true);
+      setGameStarted(false);
+      setGameState(null);
+      playerIdRef.current = null;
+      setPlayerId(null);
     });
 
     s.on("game:start", () => {
-      setGameStarted(true);
+      if (!waitingRef.current) {
+        setGameStarted(true);
+      }
     });
 
     s.on("game:reset", () => {
       setGameStarted(false);
       setGameState(null);
+      if (waitingRef.current || !playerIdRef.current) {
+        clearSessionId();
+        waitingRef.current = false;
+        setWaitingForMatch(false);
+        joinLobby();
+      }
     });
 
     s.on("game:state", (snapshot: GameStateSnapshot) => {
+      if (waitingRef.current) return;
       setGameState(snapshot);
     });
 
     return () => {
       s.disconnect();
       socketRef.current = null;
+      playerIdRef.current = null;
       setSocket(null);
       setPlayerId(null);
       setLobbyState(null);
       setGameStarted(false);
       setGameState(null);
       setConnected(false);
+      setWaitingForMatch(false);
     };
-  }, [socketUrl, hasLeft, joinGeneration]);
+  }, [socketUrl]);
 
   const setReady = useCallback(() => {
     socketRef.current?.emit("lobby:ready");
   }, []);
 
-  const leaveSession = useCallback(() => {
+  const leaveToLobby = useCallback(() => {
     socketRef.current?.emit("lobby:leave");
     clearSessionId();
-    setHasLeft(true);
+    playerIdRef.current = null;
+    setPlayerId(null);
     setGameStarted(false);
     setGameState(null);
-    setLobbyState(null);
-    setPlayerId(null);
-    setConnected(false);
-  }, []);
-
-  const findGame = useCallback(() => {
-    clearSessionId();
-    setHasLeft(false);
-    setJoinGeneration((n) => n + 1);
-  }, []);
-
-  const leaveAndFindGame = useCallback(() => {
-    socketRef.current?.emit("lobby:leave");
-    clearSessionId();
-    setHasLeft(false);
-    setGameStarted(false);
-    setGameState(null);
-    setLobbyState(null);
-    setPlayerId(null);
-    setJoinGeneration((n) => n + 1);
+    waitingRef.current = true;
+    setWaitingForMatch(true);
   }, []);
 
   return {
@@ -149,10 +161,8 @@ export function useMultiplayerSocket(socketUrl: string): UseMultiplayerSocketRes
     gameStarted,
     gameState,
     setReady,
-    leaveSession,
-    leaveAndFindGame,
-    findGame,
+    leaveToLobby,
     connected,
-    hasLeft,
+    waitingForMatch,
   };
 }

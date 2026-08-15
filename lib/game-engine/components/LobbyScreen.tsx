@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import type { GameConfig } from "../config/defaultConfig";
 import type { LobbyState } from "../hooks/useMultiplayerSocket";
 
@@ -11,6 +10,7 @@ export interface LobbyScreenProps {
   onReady: () => void;
   onLeave?: () => void;
   connected: boolean;
+  waitingForMatch?: boolean;
 }
 
 const SLOT_LABELS = ["Игрок 1", "Игрок 2", "Игрок 3", "Игрок 4"];
@@ -22,6 +22,7 @@ export function LobbyScreen({
   onReady,
   onLeave,
   connected,
+  waitingForMatch = false,
 }: LobbyScreenProps) {
   const playerColors = Object.fromEntries(config.players.map((p) => [p.id, p.color]));
   const players = lobbyState?.players ?? [];
@@ -73,7 +74,13 @@ export function LobbyScreen({
             })}
           </div>
 
-          {!allReady && (
+          {waitingForMatch && (
+            <p className="text-amber-300 text-sm text-center max-w-md">
+              Идёт матч. Новая игра начнётся автоматически, когда он закончится.
+            </p>
+          )}
+
+          {!waitingForMatch && !allReady && (
             <p className="text-slate-400 text-sm">Ожидание других игроков...</p>
           )}
 
@@ -81,14 +88,14 @@ export function LobbyScreen({
             <button
               type="button"
               onClick={onReady}
-              disabled={isReady}
+              disabled={isReady || waitingForMatch}
               className={`px-6 py-2 rounded-lg font-medium transition ${
-                isReady
+                isReady || waitingForMatch
                   ? "bg-emerald-600/50 text-emerald-200 cursor-default"
                   : "bg-emerald-600 hover:bg-emerald-500 text-white"
               }`}
             >
-              {isReady ? "Готов" : "Готов"}
+              {waitingForMatch ? "Ожидание" : isReady ? "Готов" : "Готов"}
             </button>
             {onLeave && (
               <button
@@ -102,37 +109,6 @@ export function LobbyScreen({
           </div>
         </>
       )}
-    </div>
-  );
-}
-
-export function LeftSessionScreen({
-  onFindGame,
-}: {
-  onFindGame: () => void;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[400px] gap-6 p-6 rounded-lg border border-slate-700 bg-slate-800/80">
-      <h2 className="text-xl font-semibold text-white">Вы вышли из сессии</h2>
-      <p className="text-slate-400 text-sm text-center max-w-md">
-        Эта партия больше не подключится автоматически. Можно найти новую игру
-        или вернуться на главную.
-      </p>
-      <div className="flex flex-wrap items-center justify-center gap-3">
-        <button
-          type="button"
-          onClick={onFindGame}
-          className="px-6 py-2 rounded-lg font-medium bg-emerald-600 hover:bg-emerald-500 text-white transition"
-        >
-          Найти игру
-        </button>
-        <Link
-          href="/"
-          className="px-6 py-2 rounded-lg font-medium bg-slate-700 hover:bg-slate-600 text-slate-200 transition"
-        >
-          На главную
-        </Link>
-      </div>
     </div>
   );
 }

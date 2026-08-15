@@ -57,6 +57,7 @@ export interface GameCanvasProps {
   multiplayerGameState?: import("../core/Game").GameStateSnapshot | null;
   onLeaveSession?: () => void;
   onLeaveToLobby?: () => void;
+  onNewGame?: () => void;
 }
 
 export function GameCanvas({
@@ -73,6 +74,7 @@ export function GameCanvas({
   multiplayerGameState,
   onLeaveSession,
   onLeaveToLobby,
+  onNewGame,
 }: GameCanvasProps) {
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1590,7 +1592,16 @@ export function GameCanvas({
                         onClick={onLeaveToLobby ?? onLeaveSession}
                         className="mt-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-5 py-2 text-sm font-medium text-white transition"
                       >
-                        Выйти в лобби
+                        В лобби
+                      </button>
+                    )}
+                    {mode === "local" && onNewGame && (
+                      <button
+                        type="button"
+                        onClick={onNewGame}
+                        className="mt-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-5 py-2 text-sm font-medium text-white transition"
+                      >
+                        Новая игра
                       </button>
                     )}
                   </div>

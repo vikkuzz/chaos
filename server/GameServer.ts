@@ -9,6 +9,7 @@ import type { GameAction, LobbyStatePayload } from "./types";
 const ROOM_ID = "game-room";
 const PLAYER_IDS = ["player-1", "player-2", "player-3", "player-4"];
 const RECONNECT_TIMEOUT_MS = 60000;
+const RESET_AFTER_GAME_OVER_MS = 4000;
 
 type PlayerSocket = Socket & { playerId?: string; sessionId?: string };
 
@@ -21,6 +22,7 @@ export class GameServer {
   private readonly sessionToPlayer = new Map<string, string>();
   private readonly playerDisconnectTime = new Map<string, number>();
   private gameStarted = false;
+  private resetTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(httpServer: HttpServer) {
     this.io = new SocketServer(httpServer, {
@@ -45,6 +47,11 @@ export class GameServer {
     socket.on("lobby:join", (payload?: { playerSlot?: number; sessionId?: string }) => {
       if (this.isGameOver()) {
         this.resetMatch();
+      }
+
+      if (this.gameStarted && !this.isGameOver()) {
+        socket.emit("lobby:waiting", { gameStarted: true });
+        return;
       }
 
       const slot = this.assignPlayer(socket, payload?.playerSlot, payload?.sessionId);
@@ -91,7 +98,23 @@ export class GameServer {
     return this.game.getStateSnapshot().gameOver === true;
   }
 
+  private clearResetTimer(): void {
+    if (this.resetTimer !== null) {
+      clearTimeout(this.resetTimer);
+      this.resetTimer = null;
+    }
+  }
+
+  private scheduleReset(delayMs = RESET_AFTER_GAME_OVER_MS): void {
+    if (this.resetTimer !== null) return;
+    this.resetTimer = setTimeout(() => {
+      this.resetTimer = null;
+      this.resetMatch();
+    }, delayMs);
+  }
+
   private resetMatch(): void {
+    this.clearResetTimer();
     this.loop.stop();
     this.game = new Game(defaultGameConfig);
     this.game.setHumanPlayerIds(this.humanPlayerIds);
@@ -100,7 +123,7 @@ export class GameServer {
     this.sessionToPlayer.clear();
     this.playerDisconnectTime.clear();
     this.broadcastLobbyState();
-    this.io.to(ROOM_ID).emit("game:reset");
+    this.io.emit("game:reset");
   }
 
   private removePlayer(socket: PlayerSocket, options: { allowReconnect: boolean }): void {
@@ -242,6 +265,7 @@ export class GameServer {
     this.io.to(ROOM_ID).emit("game:state", snapshot);
     if (snapshot.gameOver) {
       this.loop.stop();
+      this.scheduleReset();
     }
   }
 }
