@@ -1,9 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef } from "react";
+import { useCallback, useEffect, useId, useRef, type ReactNode } from "react";
 import Link from "next/link";
 
-export function PlayModeDialog() {
+const defaultTriggerClassName =
+  "inline-flex items-center justify-center px-6 py-3 sm:px-8 sm:py-4 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold text-lg transition-colors min-h-[48px]";
+
+export function PlayModeDialog({
+  children = "Играть",
+  className = defaultTriggerClassName,
+  onNavigate,
+  current,
+}: {
+  children?: ReactNode;
+  className?: string;
+  onNavigate?: () => void;
+  current?: boolean;
+}) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
@@ -14,6 +27,11 @@ export function PlayModeDialog() {
   const close = useCallback(() => {
     dialogRef.current?.close();
   }, []);
+
+  const choose = useCallback(() => {
+    close();
+    onNavigate?.();
+  }, [close, onNavigate]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -33,9 +51,11 @@ export function PlayModeDialog() {
       <button
         type="button"
         onClick={open}
-        className="inline-flex items-center justify-center px-6 py-3 sm:px-8 sm:py-4 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold text-lg transition-colors min-h-[48px]"
+        className={className}
+        aria-current={current ? "page" : undefined}
+        aria-haspopup="dialog"
       >
-        Играть
+        {children}
       </button>
 
       <dialog
@@ -53,14 +73,14 @@ export function PlayModeDialog() {
           <div className="flex flex-col gap-3">
             <Link
               href="/game"
-              onClick={close}
+              onClick={choose}
               className="inline-flex items-center justify-center px-4 py-3 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-medium transition-colors min-h-[44px]"
             >
               Локальная игра
             </Link>
             <Link
               href="/game?mode=multiplayer"
-              onClick={close}
+              onClick={choose}
               className="inline-flex items-center justify-center px-4 py-3 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium transition-colors min-h-[44px]"
             >
               Мультиплеер

@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import type { GameConfig } from "../config/defaultConfig";
 import type { LobbyState } from "../hooks/useMultiplayerSocket";
 
@@ -31,6 +32,34 @@ export function LobbyScreen({
   const allReady =
     players.length > 0 &&
     players.every((p) => p.ready);
+  const [shareState, setShareState] = useState<"idle" | "copied" | "error">("idle");
+
+  const shareLobby = useCallback(async () => {
+    const url = `${window.location.origin}/game?mode=multiplayer`;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "RTS Game — лобби",
+          text: "Заходи в лобби",
+          url,
+        });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setShareState("copied");
+      window.setTimeout(() => setShareState("idle"), 2000);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      try {
+        await navigator.clipboard.writeText(url);
+        setShareState("copied");
+        window.setTimeout(() => setShareState("idle"), 2000);
+      } catch {
+        setShareState("error");
+        window.setTimeout(() => setShareState("idle"), 2000);
+      }
+    }
+  }, []);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[400px] gap-6 p-6 rounded-lg border border-slate-700 bg-slate-800/80">
@@ -96,6 +125,17 @@ export function LobbyScreen({
               }`}
             >
               {waitingForMatch ? "Ожидание" : isReady ? "Готов" : "Готов"}
+            </button>
+            <button
+              type="button"
+              onClick={shareLobby}
+              className="px-6 py-2 rounded-lg font-medium bg-slate-700 hover:bg-slate-600 text-slate-200 transition"
+            >
+              {shareState === "copied"
+                ? "Ссылка скопирована"
+                : shareState === "error"
+                  ? "Не удалось скопировать"
+                  : "Поделиться"}
             </button>
             {onLeave && (
               <button

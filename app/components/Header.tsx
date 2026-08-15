@@ -7,10 +7,10 @@ import { socialLinks } from "../config/social";
 import { SocialIcon } from "./SocialLinks";
 import { useGamePageHud } from "@/lib/GamePageHudContext";
 import { Logo } from "./Logo";
+import { PlayModeDialog } from "./PlayModeDialog";
 
 const navItems = [
   { href: "/", label: "Главная" },
-  { href: "/game", label: "Игра" },
   { href: "/plans", label: "Планы" },
 ];
 
@@ -66,6 +66,16 @@ export function Header() {
               </Link>
             );
           })}
+          <PlayModeDialog
+            current={pathname === "/game"}
+            className={
+              pathname === "/game"
+                ? "font-medium text-sky-400 transition-colors"
+                : "font-medium text-slate-300 hover:text-white transition-colors"
+            }
+          >
+            Игра
+          </PlayModeDialog>
           {socialLinks.length > 0 ? (
             <div className="relative" ref={socialRef}>
               <button
@@ -210,6 +220,17 @@ export function Header() {
               {label}
             </Link>
           ))}
+          <PlayModeDialog
+            current={pathname === "/game"}
+            onNavigate={() => setMobileOpen(false)}
+            className={`flex w-full items-center px-4 py-3 rounded-lg font-medium transition-colors min-h-[44px] ${
+              pathname === "/game"
+                ? "bg-slate-800 text-sky-400"
+                : "text-slate-300 hover:bg-slate-800 hover:text-white"
+            }`}
+          >
+            Игра
+          </PlayModeDialog>
           {socialLinks.length > 0 && (
             <div className="border-t border-slate-700 mt-2 pt-2">
               <p className="px-4 py-2 text-xs font-medium text-slate-500 uppercase">
