@@ -10,9 +10,11 @@ const ROOM_ID = "game-room";
 const PLAYER_IDS = ["player-1", "player-2", "player-3", "player-4"];
 const RECONNECT_TIMEOUT_MS = 60000;
 
+type PlayerSocket = Socket & { playerId?: string; sessionId?: string };
+
 export class GameServer {
   private readonly io: SocketServer;
-  private readonly game: Game;
+  private game: Game;
   private readonly loop: ServerGameLoop;
   private readonly humanPlayerIds = new Set<string>();
   private readonly readyPlayers = new Set<string>();
@@ -34,12 +36,18 @@ export class GameServer {
   }
 
   private handleConnection(socket: Socket): void {
+    const playerSocket = socket as PlayerSocket;
+
     socket.on("lobby:join", (payload?: { playerSlot?: number; sessionId?: string }) => {
+      if (this.isGameOver()) {
+        this.resetMatch();
+      }
+
       const slot = this.assignPlayer(socket, payload?.playerSlot, payload?.sessionId);
       if (slot !== -1) {
         const playerId = PLAYER_IDS[slot];
-        (socket as Socket & { playerId?: string; sessionId?: string }).playerId = playerId;
-        (socket as Socket & { playerId?: string; sessionId?: string }).sessionId = payload?.sessionId;
+        playerSocket.playerId = playerId;
+        playerSocket.sessionId = payload?.sessionId;
 
         socket.emit("lobby:assigned", { playerId, slot });
         this.humanPlayerIds.add(playerId);
@@ -54,7 +62,7 @@ export class GameServer {
     });
 
     socket.on("lobby:ready", () => {
-      const playerId = (socket as Socket & { playerId?: string }).playerId;
+      const playerId = playerSocket.playerId;
       if (playerId && this.humanPlayerIds.has(playerId)) {
         this.readyPlayers.add(playerId);
         this.broadcastLobbyState();
@@ -62,24 +70,62 @@ export class GameServer {
       }
     });
 
+    socket.on("lobby:leave", () => {
+      this.removePlayer(playerSocket, { allowReconnect: false });
+    });
+
     socket.on("game:action", (action: GameAction) => {
       this.handleAction(socket, action);
     });
 
     socket.on("disconnect", () => {
-      const playerId = (socket as Socket & { playerId?: string; sessionId?: string }).playerId;
-      const sessionId = (socket as Socket & { playerId?: string; sessionId?: string }).sessionId;
-      if (playerId) {
-        this.humanPlayerIds.delete(playerId);
-        this.readyPlayers.delete(playerId);
-        this.game.setHumanPlayerIds(this.humanPlayerIds);
-        if (sessionId) {
-          this.sessionToPlayer.set(sessionId, playerId);
-          this.playerDisconnectTime.set(playerId, Date.now());
-        }
-        this.broadcastLobbyState();
-      }
+      this.removePlayer(playerSocket, { allowReconnect: !this.isGameOver() });
     });
+  }
+
+  private isGameOver(): boolean {
+    return this.game.getStateSnapshot().gameOver === true;
+  }
+
+  private resetMatch(): void {
+    this.loop.stop();
+    this.game = new Game(defaultGameConfig);
+    this.game.setHumanPlayerIds(this.humanPlayerIds);
+    this.gameStarted = false;
+    this.readyPlayers.clear();
+    this.sessionToPlayer.clear();
+    this.playerDisconnectTime.clear();
+    this.broadcastLobbyState();
+    this.io.to(ROOM_ID).emit("game:reset");
+  }
+
+  private removePlayer(socket: PlayerSocket, options: { allowReconnect: boolean }): void {
+    const playerId = socket.playerId;
+    const sessionId = socket.sessionId;
+    if (!playerId) return;
+
+    this.humanPlayerIds.delete(playerId);
+    this.readyPlayers.delete(playerId);
+    this.game.setHumanPlayerIds(this.humanPlayerIds);
+
+    if (options.allowReconnect && sessionId && this.gameStarted && !this.isGameOver()) {
+      this.sessionToPlayer.set(sessionId, playerId);
+      this.playerDisconnectTime.set(playerId, Date.now());
+    } else if (sessionId) {
+      this.sessionToPlayer.delete(sessionId);
+      this.playerDisconnectTime.delete(playerId);
+    }
+
+    socket.leave(ROOM_ID);
+    delete socket.playerId;
+    delete socket.sessionId;
+
+    const shouldReset = this.isGameOver() || this.humanPlayerIds.size === 0;
+    if (shouldReset) {
+      this.resetMatch();
+    } else {
+      this.broadcastLobbyState();
+    }
   }
 
   private getLobbyState(): LobbyStatePayload {

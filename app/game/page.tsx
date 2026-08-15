@@ -3,7 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { GameCanvas } from "@/lib/game-engine/renderer/GameCanvas";
-import { LobbyScreen } from "@/lib/game-engine/components/LobbyScreen";
+import { LeftSessionScreen, LobbyScreen } from "@/lib/game-engine/components/LobbyScreen";
 import { useMultiplayerSocket } from "@/lib/game-engine/hooks/useMultiplayerSocket";
 import { defaultGameConfig } from "@/lib/game-engine";
 
@@ -18,17 +18,24 @@ function MultiplayerGame() {
     gameStarted,
     gameState,
     setReady,
+    leaveSession,
+    leaveAndFindGame,
+    findGame,
     connected,
+    hasLeft,
   } = useMultiplayerSocket(SOCKET_URL);
 
   return (
     <div className="flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden rounded-lg border border-slate-700">
-      {!gameStarted ? (
+      {hasLeft ? (
+        <LeftSessionScreen onFindGame={findGame} />
+      ) : !gameStarted ? (
         <LobbyScreen
           lobbyState={lobbyState}
           playerId={playerId}
           config={defaultGameConfig}
           onReady={setReady}
+          onLeave={leaveSession}
           connected={connected}
         />
       ) : (
@@ -39,6 +46,8 @@ function MultiplayerGame() {
           multiplayerSocket={socket ?? undefined}
           multiplayerPlayerId={playerId}
           multiplayerGameState={gameState}
+          onLeaveSession={leaveSession}
+          onLeaveToLobby={leaveAndFindGame}
         />
       )}
     </div>

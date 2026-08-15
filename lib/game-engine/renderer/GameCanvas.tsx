@@ -55,6 +55,8 @@ export interface GameCanvasProps {
   multiplayerSocket?: import("socket.io-client").Socket;
   multiplayerPlayerId?: string | null;
   multiplayerGameState?: import("../core/Game").GameStateSnapshot | null;
+  onLeaveSession?: () => void;
+  onLeaveToLobby?: () => void;
 }
 
 export function GameCanvas({
@@ -69,6 +71,8 @@ export function GameCanvas({
   multiplayerSocket,
   multiplayerPlayerId,
   multiplayerGameState,
+  onLeaveSession,
+  onLeaveToLobby,
 }: GameCanvasProps) {
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1513,6 +1517,15 @@ export function GameCanvas({
                   </div>
                 );
               })()}
+            {mode === "multiplayer" && onLeaveSession && (
+              <button
+                type="button"
+                onClick={onLeaveSession}
+                className="ml-auto rounded px-3 py-1.5 text-xs font-medium text-slate-200 bg-slate-700 hover:bg-red-700/80 transition"
+              >
+                Выйти
+              </button>
+            )}
           </div>
         )}
 
@@ -1522,6 +1535,15 @@ export function GameCanvas({
               ref={viewportContainerRef}
               className="relative mx-auto h-full max-h-full w-auto max-w-full shrink-0 overflow-hidden rounded-lg border-2 border-slate-500/80 shadow-lg shadow-black/40 aspect-square"
             >
+              {mode === "multiplayer" && onLeaveSession && (
+                <button
+                  type="button"
+                  onClick={onLeaveSession}
+                  className="absolute top-2 left-2 z-20 rounded-lg bg-slate-800/90 px-3 py-1.5 text-xs font-medium text-slate-200 shadow-lg hover:bg-red-700/80 transition"
+                >
+                  Выйти
+                </button>
+              )}
               <div className="absolute bottom-2 right-2 z-10 flex flex-col gap-1 rounded-lg bg-slate-800/90 p-1 shadow-lg md:bottom-3 md:right-3">
                 <button
                   type="button"
@@ -1562,6 +1584,15 @@ export function GameCanvas({
                             .join(", ")}`
                         : "Все здания уничтожены"}
                     </p>
+                    {mode === "multiplayer" && (onLeaveToLobby || onLeaveSession) && (
+                      <button
+                        type="button"
+                        onClick={onLeaveToLobby ?? onLeaveSession}
+                        className="mt-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-5 py-2 text-sm font-medium text-white transition"
+                      >
+                        Выйти в лобби
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
