@@ -6,6 +6,7 @@ import { useState, useRef, useEffect } from "react";
 import { socialLinks } from "../config/social";
 import { SocialIcon } from "./SocialLinks";
 import { useGamePageHud } from "@/lib/GamePageHudContext";
+import { Logo } from "./Logo";
 
 const navItems = [
   { href: "/", label: "Главная" },
@@ -38,9 +39,12 @@ export function Header() {
       >
         <Link
           href="/"
-          className="text-lg font-bold text-white hover:text-sky-400 transition-colors"
+          className="hover:opacity-90 transition-opacity"
         >
-          RTS Game
+          <Logo
+            markClassName="h-8 w-8 shrink-0"
+            textClassName="text-lg font-bold text-white"
+          />
         </Link>
 
         {/* Desktop nav */}
@@ -51,6 +55,7 @@ export function Header() {
               <Link
                 key={href}
                 href={href}
+                aria-current={isActive ? "page" : undefined}
                 className={
                   isActive
                     ? "font-medium text-sky-400 transition-colors"
@@ -195,6 +200,7 @@ export function Header() {
               key={href}
               href={href}
               onClick={() => setMobileOpen(false)}
+              aria-current={pathname === href ? "page" : undefined}
               className={`flex items-center px-4 py-3 rounded-lg font-medium transition-colors min-h-[44px] ${
                 pathname === href
                   ? "bg-slate-800 text-sky-400"

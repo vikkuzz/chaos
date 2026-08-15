@@ -3,6 +3,7 @@ import { gameParams } from "./data/gameParams";
 import { supportConfig } from "./config/support";
 import { SocialLinks } from "./components/SocialLinks";
 import { socialLinks } from "./config/social";
+import { Logo } from "./components/Logo";
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -84,10 +85,19 @@ export default function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       {/* Hero */}
-      <section className="relative py-16 sm:py-24 lg:py-32">
+      <section
+        className="relative py-16 sm:py-24 lg:py-32"
+        aria-labelledby="hero-heading"
+      >
         <div className="mx-auto max-w-4xl px-4 sm:px-6 text-center">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4 sm:mb-6">
-            RTS Game
+          <h1
+            id="hero-heading"
+            className="mb-4 sm:mb-6 flex justify-center"
+          >
+            <Logo
+              markClassName="h-12 w-12 sm:h-14 sm:w-14 lg:h-16 lg:w-16 shrink-0"
+              textClassName="text-4xl sm:text-5xl lg:text-6xl font-bold text-white"
+            />
           </h1>
           <p className="text-lg sm:text-xl text-slate-300 mb-8 sm:mb-10 max-w-2xl mx-auto">
             Стратегия в реальном времени в браузере. Управляйте армией,
@@ -391,9 +401,12 @@ export default function HomePage() {
         <div className="mx-auto max-w-4xl px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <Link
             href="/"
-            className="font-semibold text-slate-300 hover:text-white transition-colors"
+            className="hover:opacity-90 transition-opacity"
           >
-            RTS Game
+            <Logo
+              markClassName="h-7 w-7 shrink-0"
+              textClassName="font-semibold text-slate-300"
+            />
           </Link>
           <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
           <nav className="flex flex-wrap gap-4 sm:gap-6 justify-center" aria-label="Ссылки в подвале">
