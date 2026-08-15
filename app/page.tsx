@@ -4,6 +4,7 @@ import { supportConfig } from "./config/support";
 import { SocialLinks } from "./components/SocialLinks";
 import { socialLinks } from "./config/social";
 import { Logo } from "./components/Logo";
+import { PlayModeDialog } from "./components/PlayModeDialog";
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -105,12 +106,7 @@ export default function HomePage() {
             противников.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-            <Link
-              href="/game"
-              className="inline-flex items-center justify-center px-6 py-3 sm:px-8 sm:py-4 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold text-lg transition-colors min-h-[48px]"
-            >
-              Играть
-            </Link>
+            <PlayModeDialog />
             <a
               href="#kak-igrat"
               className="inline-flex items-center justify-center px-6 py-3 sm:px-8 sm:py-4 rounded-lg border border-slate-600 bg-slate-800/50 hover:bg-slate-700/50 text-slate-200 font-medium transition-colors min-h-[48px]"
